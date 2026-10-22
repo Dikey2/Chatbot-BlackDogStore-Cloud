@@ -37,7 +37,31 @@ Comprobar cada punto en el laboratorio real, porque dependen de cómo lo configu
 - El laboratorio tiene un crédito limitado y se cierra por tiempo. Un bucket S3 con pocos archivos de prueba consume una fracción mínima de ese crédito.
 - Las regiones disponibles suelen limitarse a `us-east-1` y `us-west-2`.
 
-## Pasos para cuando exista acceso autorizado
+## Script: `preparar-s3.sh` (recomendado)
+
+Hace todos los pasos de abajo y guarda las salidas en `infra/aws/evidencias/<fecha>/`. Esa carpeta no se sube a Git porque contiene el ID de la cuenta.
+
+```bash
+cd infra/aws
+export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_SESSION_TOKEN=...   # del laboratorio
+export AWS_REGION=us-east-1
+export BUCKET=blackdog-chatbot-academico-<sufijo-unico>
+./preparar-s3.sh
+```
+
+El script:
+
+1. Muestra la identidad y pide confirmar que es la cuenta del laboratorio.
+2. Crea el bucket, o lo reutiliza si ya existe.
+3. Aplica el bloqueo de acceso público, el cifrado y la política solo HTTPS.
+4. Intenta crear la política IAM mínima; si el laboratorio no lo permite, lo deja registrado.
+5. Sube un archivo ficticio y comprueba que el acceso anónimo devuelve 403.
+
+**Estado:** solo se comprobó la sintaxis (`bash -n`). No se ha ejecutado contra AWS.
+
+Al final imprime el comando para borrar el bucket si hace falta.
+
+## Pasos manuales equivalentes
 
 Ningún comando de esta sección se ha ejecutado.
 

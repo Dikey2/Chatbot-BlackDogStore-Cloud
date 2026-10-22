@@ -30,9 +30,10 @@ flowchart LR
 4. **Modelo de usuario propio desde la primera migración** (`users.User` con campo `role`). Cambiar el modelo de usuario después obliga a recrear la base de datos. **[V]**
 5. **El navegador nunca llama a la API.** Los formularios y el chat usan Server Actions de Next.js, que llaman a Django por la red interna de Docker. Por eso no hay CORS que abrir. **[V]**
 6. **El token de sesión vive en una cookie `httpOnly`** que escribe el servidor de Next.js. El JavaScript de la página no puede leerlo (probado con Playwright). **[V]**
-7. **Autenticación con el token integrado de DRF**, sin bibliotecas extra. El logout borra el token. La expiración por tiempo es tarea del 80 %. **[V]**
+7. **Autenticación con el token integrado de DRF**, sin bibliotecas extra, con caducidad absoluta de 8 h (`users/authentication.py`). El logout borra el token. **[V]**
 8. **La API Django envía al chatbot las FAQ activas en cada consulta.** El chatbot no guarda contenido ni tiene acceso a la base de datos. **[V]**
 9. **Inicio de sesión por correo.** El modelo de usuario no tiene `username`. **[V]**
+10. **gunicorn en lugar de `runserver`.** `runserver` reiniciaba conexiones con 50 usuarios concurrentes (cola de 5). Los contadores de rate limit pasan a una caché compartida en PostgreSQL para que valgan entre procesos. **[V]**
 
 ## 3. Estructura de carpetas
 
@@ -52,7 +53,7 @@ Chatbot-BlackDogStore-Cloud/
 │   ├── bot/                reglas y endpoints
 │   └── tests/              pytest
 ├── frontend/
-│   ├── src/app/            inicio, login, registro, chat, 404, error, mantenimiento
+│   ├── src/app/            inicio, login, registro, chat, admin/faqs, asesor, 404, error, mantenimiento
 │   ├── src/app/actions.ts  Server Actions (login, registro, logout, chat)
 │   ├── src/lib/            cliente de la API y sesión por cookie
 │   └── e2e/                Playwright
@@ -70,38 +71,36 @@ Ver [API.md](API.md). Modelo de datos: [BASE_DE_DATOS.md](BASE_DE_DATOS.md). Res
 
 | Criterio del docente (sección 7.1) | Estado | Evidencia |
 |---|---|---|
-| Entorno cloud preparado | **Pendiente**: sin acceso AWS confirmado; solo diseño | `infra/aws/` |
+| Entorno cloud preparado | **Pendiente del equipo**: falta ejecutar `infra/aws/preparar-s3.sh` en Learner Lab y tomar capturas | `infra/aws/` |
 | Endpoints desarrollados | Hecho | `API.md`, colección Postman |
 | Registro y login diferenciados y funcionales | Hecho | `/registro`, `/login`, Playwright |
 | Rate limits | Hecho | `test_rate_limit_and_errors.py`, `PRUEBAS.md` sección 5 |
 | Vista de página inexistente o en desarrollo | Hecho | `/no-existe`, `/en-desarrollo`, `/mantenimiento` |
 | Control de respuestas HTTP | Hecho | Formato único de errores, `API.md` |
-| CRUD estructurado y comenzado | Hecho en la API; falta la pantalla de administración | `test_faqs.py` |
+| CRUD estructurado y comenzado | Hecho: API y pantalla `/admin/faqs` (crear, editar, activar/desactivar, eliminar) | `test_faqs.py`, Playwright |
 | Variables de entorno | Hecho | `.env.example` |
 | Cifrado de contraseñas | Hecho | Hash PBKDF2-SHA256, `test_auth.py` |
 | Pruebas unitarias y masivas mínimas | Hecho | `PRUEBAS.md` |
 | BD conectada y diagrama editable | Hecho | `BASE_DE_DATOS.md`, `diagrama-er.mmd` |
-| Pruebas de servidor 50–100 | Hecho con supuesto provisional | `PRUEBAS.md` sección 4 |
+| Pruebas de servidor 50–100 | Hecho en las dos lecturas: 100 peticiones totales y 50/100 usuarios concurrentes, 0 fallos | `PRUEBAS.md` sección 4 |
 
 ## 6. Trabajo restante
 
 Para cerrar el 25 %:
 
-1. Entorno AWS: confirmar acceso a AWS Academy Learner Lab y seguir `infra/aws/README.md`.
-2. Confirmar con el docente si "50–100" son peticiones totales o usuarios concurrentes.
-3. Pantalla de administración de FAQ en Next.js (la API ya está).
+1. Entorno AWS: entrar a AWS Academy Learner Lab, ejecutar `infra/aws/preparar-s3.sh` y tomar las capturas de `infra/aws/README.md`.
 
 Para el 80 %:
 
-- Expiración de tokens y rutas protegidas.
-- Pantallas por rol: bandeja del asesor para conversaciones derivadas, panel de administrador.
+- ~~Expiración de tokens y rutas protegidas.~~ Hecho el 21 de octubre (ver `PRUEBAS.md`, sección 7).
+- ~~Pantallas por rol: bandeja del asesor.~~ Hecho el 21 de octubre: `/asesor` (bandeja por estado) y `/asesor/{id}` (responder y cerrar).
 - CORS restringido, si el navegador llega a llamar a la API directamente.
-- Servidor de producción (gunicorn) y despliegue en el servidor académico.
+- Despliegue en el servidor académico (gunicorn ya está en uso desde el 22 de octubre).
 - Auditoría (RF-12), archivos en S3 (RF-10), catálogo simulado (RF-06).
-- Caché compartida para los rate limits y `NUM_PROXIES`.
+- `NUM_PROXIES` para el rate limit detrás de un proxy (la caché compartida ya está en PostgreSQL).
 - Carga de 1 000 a 5 000 con medición de CPU y RAM.
 
 ## 7. Dudas abiertas
 
-- **Cifras de carga:** supuesto provisional de peticiones totales, sin confirmar.
+- **Cifras de carga:** se midieron las dos lecturas (peticiones totales y usuarios concurrentes); conviene igualmente que el docente indique cuál evalúa.
 - **AWS:** presupuesto adicional de S/ 0. Sin acceso confirmado a Learner Lab no se crea nada.

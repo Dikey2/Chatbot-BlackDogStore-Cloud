@@ -70,6 +70,15 @@ DATABASES = {
 
 AUTH_USER_MODEL = "users.User"
 
+# Caché compartida en PostgreSQL. Guarda los contadores de rate limit: con varios
+# procesos de gunicorn, una caché en memoria contaría por separado en cada uno.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_cache",
+    }
+}
+
 # RNF-01: hash seguro de contraseñas (PBKDF2-SHA256 por defecto en Django).
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -81,7 +90,7 @@ AUTH_PASSWORD_VALIDATORS = [
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.TokenAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["users.authentication.ExpiringTokenAuthentication"],
     # Todo endpoint exige sesión salvo que declare lo contrario.
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
@@ -99,6 +108,9 @@ REST_FRAMEWORK = {
         "chat": os.environ.get("THROTTLE_CHAT", "30/min"),
     },
 }
+
+# Duración de la sesión. Debe coincidir con la cookie del frontend (8 h).
+TOKEN_TTL_HOURS = float(os.environ.get("TOKEN_TTL_HOURS", "8"))
 
 # URL interna del servicio de chatbot (red de Docker Compose).
 CHATBOT_SERVICE_URL = os.environ.get("CHATBOT_SERVICE_URL", "http://chatbot:8000")

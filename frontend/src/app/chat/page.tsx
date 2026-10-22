@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { logoutAction } from "@/app/actions";
 import { ChatBox } from "@/components/ChatBox";
 import { getLatestConversation } from "@/lib/chat";
-import { getSession } from "@/lib/session";
+import { getSession, loginPath } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Chat" };
 
@@ -22,13 +22,13 @@ function ConnectionError({ message }: { message: string }) {
 
 async function Chat() {
   const session = await getSession();
-  if (session.state === "anonymous") redirect("/login");
+  if (session.state === "anonymous") redirect(session.expired ? "/login?motivo=expirada" : "/login");
   if (session.state === "unavailable") {
     return <ConnectionError message="No se pudo conectar con el servidor. Tu sesión sigue activa." />;
   }
 
   const history = await getLatestConversation(session.token);
-  if (!history.ok && history.status === 401) redirect("/login");
+  if (!history.ok && history.status === 401) redirect(loginPath(history.error));
 
   return (
     <>
@@ -36,6 +36,8 @@ async function Chat() {
         <span data-testid="session-user">
           {session.user.name} ({session.user.role})
         </span>
+        {session.user.role !== "cliente" && <Link href="/asesor">Bandeja del asesor</Link>}
+        {session.user.role === "admin" && <Link href="/admin/faqs">Administrar FAQ</Link>}
         <button type="submit">Cerrar sesión</button>
       </form>
       {history.ok ? (
@@ -43,6 +45,7 @@ async function Chat() {
           initialConversationId={history.data?.id ?? null}
           initialMessages={history.data?.messages ?? []}
           initialEscalated={history.data?.status === "derivada"}
+          initialClosed={history.data?.status === "cerrada"}
         />
       ) : (
         // Sin historial no se muestra el chat: un mensaje nuevo abriría otra conversación.

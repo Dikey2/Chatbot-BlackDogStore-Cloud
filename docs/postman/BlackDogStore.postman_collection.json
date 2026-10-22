@@ -1073,6 +1073,418 @@
       ]
     },
     {
+      "name": "4b. Bandeja del asesor",
+      "item": [
+        {
+          "name": "Derivadas (staff)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('incluye la conversación derivada con nombre del cliente', () => { const c = pm.response.json().results.find(r => r.id === pm.collectionVariables.get('conversation_id')); pm.expect(c).to.exist; pm.expect(c.user_name).to.eql('Persona Postman'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat/conversations/?status=derivada",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat",
+                "conversations",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "derivada"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Responder como cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('error.code = permission_denied', () => pm.expect(pm.response.json().error.code).to.eql('permission_denied'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat/conversations/{{conversation_id}}/reply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat",
+                "conversations",
+                "{{conversation_id}}",
+                "reply",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Responder vacío",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('error.code = validation_error', () => pm.expect(pm.response.json().error.code).to.eql('validation_error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat/conversations/{{conversation_id}}/reply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat",
+                "conversations",
+                "{{conversation_id}}",
+                "reply",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Responder como staff",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('mensaje de asesor', () => pm.expect(pm.response.json().sender).to.eql('asesor'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat/conversations/{{conversation_id}}/reply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat",
+                "conversations",
+                "{{conversation_id}}",
+                "reply",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"DATO FICTICIO: respuesta del asesor.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "El cliente ve la respuesta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('último mensaje del asesor', () => { const m = pm.response.json().messages; pm.expect(m[m.length - 1].sender).to.eql('asesor'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat/conversations/latest/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat",
+                "conversations",
+                "latest",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cerrar como cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat/conversations/{{conversation_id}}/close/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat",
+                "conversations",
+                "{{conversation_id}}",
+                "close",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cerrar como staff",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('cerrada', () => pm.expect(pm.response.json().status).to.eql('cerrada'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat/conversations/{{conversation_id}}/close/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat",
+                "conversations",
+                "{{conversation_id}}",
+                "close",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Responder conversación cerrada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('error.code = conversation_closed', () => pm.expect(pm.response.json().error.code).to.eql('conversation_closed'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat/conversations/{{conversation_id}}/reply/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat",
+                "conversations",
+                "{{conversation_id}}",
+                "reply",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cliente continúa conversación cerrada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('error.code = conversation_closed', () => pm.expect(pm.response.json().error.code).to.eql('conversation_closed'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat/messages/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat",
+                "messages",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"hola\",\n  \"conversation_id\": {{conversation_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "5. Limpieza y cierre",
       "item": [
         {

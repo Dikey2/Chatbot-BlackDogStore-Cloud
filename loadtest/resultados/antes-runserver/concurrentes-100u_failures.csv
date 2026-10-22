@@ -1,0 +1,4 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,/api/auth/register/,"ConnectionResetError(104, 'Connection reset by peer')",61,2026-10-22T17:50:25Z,2026-10-22T17:50:26Z
+POST,/api/auth/login/,"ConnectionResetError(104, 'Connection reset by peer')",36,2026-10-22T17:50:27Z,2026-10-22T17:50:27Z
+POST,/api/auth/login/,HTTPError('401 Client Error: Unauthorized for url: /api/auth/login/'),25,2026-10-22T17:50:30Z,2026-10-22T17:50:33Z

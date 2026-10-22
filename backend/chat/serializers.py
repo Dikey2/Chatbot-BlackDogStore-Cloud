@@ -10,9 +10,11 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class ConversationSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.name", read_only=True)
+
     class Meta:
         model = Conversation
-        fields = ["id", "user", "status", "created_at"]
+        fields = ["id", "user", "user_name", "status", "created_at"]
 
 
 class ConversationDetailSerializer(ConversationSerializer):
@@ -20,6 +22,10 @@ class ConversationDetailSerializer(ConversationSerializer):
 
     class Meta(ConversationSerializer.Meta):
         fields = ConversationSerializer.Meta.fields + ["messages"]
+
+
+class AdvisorReplySerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=2000)
 
 
 class SendMessageSerializer(serializers.Serializer):

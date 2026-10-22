@@ -157,3 +157,92 @@ button:disabled {
   flex: 1;
   min-width: 0;
 }
+
+main.wide {
+  max-width: 64rem;
+}
+
+textarea {
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  resize: vertical;
+}
+
+.form .checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.row-actions button {
+  padding: 0.3rem 0.6rem;
+}
+
+button.secondary {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+button.danger {
+  background: var(--error);
+  border-color: var(--error);
+  color: #ffffff;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs a {
+  padding: 0.5rem 0.75rem;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.tabs a[aria-current="page"] {
+  border-bottom-color: var(--foreground);
+  font-weight: 600;
+}
+
+.message .sender {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.message.asesor {
+  border-width: 2px;
+  border-color: var(--ok);
+}

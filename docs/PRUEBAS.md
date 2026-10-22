@@ -6,12 +6,12 @@ Resultados obtenidos el 13 de octubre de 2026 en el entorno local de Docker Comp
 
 | Tipo | Herramienta | Resultado |
 |---|---|---|
-| Unitarias e integración de la API | pytest + pytest-django, contra PostgreSQL | 81 de 81 correctas (19 de octubre) |
+| Unitarias e integración de la API | pytest + pytest-django, contra PostgreSQL | 111 de 111 correctas (22 de octubre) |
 | Unitarias del chatbot | pytest | 17 de 17 correctas |
-| API de extremo a extremo | Colección Postman ejecutada con Newman | 28 peticiones, 50 aserciones, 0 fallos (19 de octubre) |
-| Web de extremo a extremo | Playwright (Chromium) | 8 de 8 correctas (19 de octubre) |
+| API de extremo a extremo | Colección Postman ejecutada con Newman | 37 peticiones, 67 aserciones, 0 fallos (21 de octubre) |
+| Web de extremo a extremo | Playwright (Chromium) | 9 de 9 correctas (21 de octubre) |
 | Estático del frontend | `eslint`, `tsc --noEmit`, `next build` | Sin errores |
-| Carga inicial | Locust 2.46.7 | 100 peticiones, 0 fallos |
+| Carga | Locust 2.46.7 | 100 peticiones totales; 50 y 100 usuarios concurrentes: 0 fallos (22 de octubre) |
 | Rate limit en vivo | `curl` | 429 con `Retry-After` |
 
 ## 1. Pytest
@@ -55,74 +55,106 @@ Resultado del 13 de octubre: 26 peticiones, 47 aserciones, 0 fallos, respuesta m
 cd frontend
 npm install
 npx playwright install chromium     # solo la primera vez
+set -a; . ../.env; set +a        # DEMO_PASSWORD, para la prueba del administrador
 npm run test:e2e
 ```
 
-Usa el stack levantado en `http://localhost:3000` y requiere `seed_demo`.
+Usa el stack levantado en `http://localhost:3000` y requiere `seed_demo`. Sin `DEMO_PASSWORD` la prueba del administrador se omite.
 
 | Prueba | Resultado |
 |---|---|
 | El inicio muestra los tres servicios operativos | Correcta |
 | Una ruta inexistente responde 404 con la página propia | Correcta |
 | Páginas de mantenimiento y en desarrollo | Correcta |
-| El chat sin sesión redirige al login | Correcta |
+| El chat y la administración sin sesión redirigen al login | Correcta |
 | Registro, chat, recarga con historial, reapertura del navegador, cookie `httpOnly`, cierre de sesión | Correcta |
 | El registro rechaza un correo ya usado | Correcta |
 | Al volver a iniciar sesión se recupera el historial y la conversación continúa | Correcta |
-| Otro usuario no ve el historial del primero | Correcta |
+| Otro usuario no ve el historial; un cliente no entra a FAQ ni a la bandeja; el asesor responde y cierra la consulta derivada; el cliente ve la respuesta y el cierre, y su siguiente mensaje abre otra conversación; el asesor no administra FAQ | Correcta |
+| Administrador: validación, crear, editar, desactivar, activar y eliminar una FAQ; el chatbot usa cada cambio; 404 al editar una inexistente | Correcta |
 
-Cada ejecución hace 7 peticiones de autenticación. Dos ejecuciones seguidas en el mismo minuto pueden recibir 429; esperar un minuto.
+Cada ejecución hace 9 peticiones de autenticación. Dos ejecuciones seguidas en el mismo minuto pueden recibir 429; esperar un minuto.
 
-## 4. Prueba de carga inicial (Locust)
+## 4. Pruebas de carga (Locust)
 
-### Supuesto
+### Interpretación de "50–100"
 
-**El rango "50–100" del docente se interpreta provisionalmente como peticiones HTTP totales, no como usuarios concurrentes.** Queda pendiente confirmarlo con el docente.
+El docente no define si "50–100" son peticiones o usuarios concurrentes. Se midieron las dos lecturas:
 
-### Escenario
+- **Escenario A:** 100 peticiones HTTP totales, repartidas entre 5 usuarios.
+- **Escenarios B y C:** 50 y 100 usuarios concurrentes durante 60 s.
+
+### Configuración común
 
 | Parámetro | Valor |
 |---|---|
-| Peticiones totales | 100 (la prueba se detiene sola al llegar) |
-| Usuarios simulados | 5, todos desde el inicio |
-| Espera entre peticiones por usuario | 0,1 a 0,5 s |
 | Destino | `http://backend:8000`, red interna de Docker Compose |
-| Servidor | `runserver` de Django (un proceso, desarrollo) |
+| Servidor | gunicorn, 4 procesos (antes: `runserver` de Django) |
 | Flujo por usuario | Registro y login; después, al azar: FAQ (peso 3), chat (3), perfil (1), health (1) |
+| Espera entre peticiones por usuario | 0,1 a 0,5 s |
 | Rate limits | Subidos a 100000/min con `docker-compose.loadtest.yml` |
+| Equipo | Docker Desktop en macOS, 8 CPU virtuales y 3,8 GiB para la VM de Docker |
 
-Los rate limits se suben porque las 100 peticiones salen de una sola IP: con los límites normales se mediría el bloqueo y no el rendimiento. El bloqueo se prueba en la sección 5.
+Los rate limits se suben porque todas las peticiones salen de una sola IP: con los límites normales se mediría el bloqueo y no el rendimiento. El bloqueo se prueba en la sección 5.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d backend
-docker compose -f docker-compose.yml -f docker-compose.loadtest.yml --profile loadtest run --rm locust
-docker compose up -d backend        # restaura los rate limits normales
+C="docker compose -f docker-compose.yml -f docker-compose.loadtest.yml --profile loadtest run --rm locust"
+
+# A: 100 peticiones totales
+$C
+# B y C: usuarios concurrentes durante 60 s
+TOTAL_REQUESTS=1000000 $C -f locustfile.py --headless --users 50 --spawn-rate 50 --run-time 60s \
+  --host http://backend:8000 --csv resultados/concurrentes-50u --html resultados/concurrentes-50u.html --only-summary
+#   (lo mismo con 100)
+
+docker compose up -d backend    # restaura los rate limits normales
 ```
 
-Para cambiar el tamaño: `TOTAL_REQUESTS=50 LOAD_USERS=5` delante del segundo comando.
+Los contadores del rate limit se guardan en PostgreSQL y sobreviven al reinicio. Esperar un minuto después de la carga antes de lanzar Newman o Playwright; si no, algunas peticiones pueden recibir 429.
 
-### Resultado
+### Resultados finales (gunicorn, 22 de octubre de 2026)
 
-| Endpoint | Peticiones | Fallos | Mediana (ms) | Media (ms) | Máx (ms) | req/s |
-|---|---|---|---|---|---|---|
-| `POST /api/auth/register/` | 5 | 0 | 1400 | 1408 | 1431 | 0,48 |
-| `POST /api/auth/login/` | 5 | 0 | 1815 | 1828 | 1847 | 0,48 |
-| `POST /api/chat/messages/` | 31 | 0 | 45 | 95 | 566 | 2,98 |
-| `GET /api/faqs/` | 37 | 0 | 31 | 59 | 369 | 3,55 |
-| `GET /api/users/me/` | 15 | 0 | 32 | 68 | 351 | 1,44 |
-| `GET /api/health/` | 7 | 0 | 33 | 32 | 48 | 0,67 |
-| **Total** | **100** | **0 (0 %)** | **39** | **225** | **1847** | **9,60** |
+| Escenario | Peticiones | Fallos | req/s | Mediana | p95 | p99 | Media |
+|---|---|---|---|---|---|---|---|
+| A: 100 peticiones totales, 5 usuarios | 100 | 0 (0 %) | 15,9 | 22 ms | 360 ms | 540 ms | 54 ms |
+| B: 50 usuarios concurrentes, 60 s | 6048 | 0 (0 %) | 101,1 | 100 ms | 560 ms | 2700 ms | 197 ms |
+| C: 100 usuarios concurrentes, 60 s | 3480 | 0 (0 %) | 58,2 | 850 ms | 6200 ms | 8900 ms | 1429 ms |
 
-Percentiles del total: p50 39 ms, p90 1400 ms, p95 1800 ms. Duración: unos 10 s.
+Uso de recursos a mitad de prueba (`docker stats`):
 
-Archivos de evidencia en `loadtest/resultados/`: `carga.html` (gráficos), `carga_stats.csv`, `carga_stats_history.csv`, `carga_failures.csv`.
+| Escenario | Backend | PostgreSQL | Chatbot |
+|---|---|---|---|
+| B: 50 usuarios | CPU 190 %, RAM 208 MiB | CPU 180 %, RAM 47 MiB | CPU 16 %, RAM 76 MiB |
+| C: 100 usuarios | CPU 196 %, RAM 210 MiB | CPU 186 %, RAM 66 MiB | CPU 13 %, RAM 76 MiB |
+
+Evidencias en `loadtest/resultados/`: `carga.html`, `concurrentes-50u.html` y `concurrentes-100u.html` (gráficos), más sus CSV. Las cifras de la tabla son el resumen final de Locust en consola; los CSV pueden tener unas pocas peticiones menos porque se escriben un instante antes de terminar.
+
+### Antes: servidor de desarrollo `runserver`
+
+| Escenario | Peticiones | Fallos | req/s | Mediana | p95 |
+|---|---|---|---|---|---|
+| A: 100 peticiones totales | 100 | 0 (0 %) | 9,6 | 39 ms | 1800 ms |
+| B: 50 usuarios concurrentes | 3521 | **48 (1,4 %)** | 59,3 | 28 ms | 720 ms |
+| C: 100 usuarios concurrentes | 5309 | **122 (2,3 %)** | 88,8 | 37 ms | 610 ms |
+
+Evidencias en `loadtest/resultados/antes-runserver/`.
+
+### Cuello de botella encontrado y corrección
+
+- **Síntoma:** con 50 y 100 usuarios concurrentes fallaban el 48 % y el 61 % de los registros y logins con `ConnectionResetError(104, 'Connection reset by peer')`. Los logins con 401 eran de usuarios cuyo registro había fallado. El resto de endpoints no tenía fallos.
+- **Causa:** `runserver` acepta solo 5 conexiones en cola (`socketserver.TCPServer.request_queue_size = 5`, comprobado en el contenedor). Una ráfaga de registros, lentos a propósito por el hash PBKDF2, llena la cola y el sistema reinicia las conexiones nuevas.
+- **Corrección:** el backend corre con gunicorn (4 procesos, cola de 2048). Como cada proceso tendría su propia memoria, los contadores del rate limit pasan a una caché compartida en PostgreSQL (`DatabaseCache`).
+- **Resultado:** 0 fallos en los tres escenarios. En vivo, 11 logins seguidos dan 10 × 401 y 1 × 429 aunque los atiendan 4 procesos distintos.
+- **Por qué el C con `runserver` muestra más req/s:** los usuarios con registro fallido dejaban de enviar peticiones, así que había menos usuarios activos. No era mejor rendimiento.
 
 ### Lectura
 
-- Sin errores con 100 peticiones.
-- Registro y login tardan entre 1,4 y 1,8 s. Los 5 usuarios se registran a la vez y el hash PBKDF2 de la contraseña es costoso a propósito; el servidor de desarrollo los atiende en un solo proceso. Esos 10 valores explican el p90 y el p95.
-- El resto de endpoints tiene mediana de 31 a 45 ms.
-- No se midió CPU ni RAM. Pendiente para la entrega del 80 %.
+- **50 usuarios:** sin fallos, unas 100 req/s y mediana de 100 ms.
+- **100 usuarios:** sin fallos, pero la latencia sube (mediana 850 ms, p95 6,2 s) y el throughput baja a 58 req/s. El backend y PostgreSQL están cerca de 2 CPU cada uno. Se atribuye a:
+  1. El hash de 100 contraseñas a la vez.
+  2. La consulta y escritura de los contadores de rate limit en PostgreSQL en cada petición.
+- **Pendiente para el 80 %:** medir por separado esas dos causas, probar más procesos de gunicorn y valorar una caché dedicada si el coste en PostgreSQL se confirma.
 
 ## 5. Rate limit en vivo
 
@@ -166,10 +198,30 @@ El bloqueo llega en la petición 11 del minuto, como fija `THROTTLE_AUTH=10/min`
 | API caída con sesión activa | `curl` con la cookie de sesión | "No se pudo conectar con el servidor. Tu sesión sigue activa." |
 | API restablecida | `curl` | Vuelve a mostrarse el chat |
 
-## 6. Pendiente
+## 7. Expiración de tokens (21 de octubre de 2026)
 
-- Confirmar con el docente la interpretación de "50–100".
-- Medir CPU y RAM durante la carga.
-- Repetir la carga con un servidor de producción (gunicorn) antes de la entrega del 80 %.
-- Pruebas E2E del panel administrativo, cuando exista.
-- Pruebas de CORS y de expiración de tokens (entrega del 80 %).
+Pytest: `backend/tests/test_token_expiration.py`, 13 casos. Token vigente a las 7,9 h; rechazado a las 8,1 h con `token_expired` y borrado; bloqueado en cada ruta protegida; login devuelve `expires_at`; reutiliza el token vigente; reemplaza el caducado; duración configurable.
+
+Comprobación en vivo (usuario ficticio `cliente@example.com`; el token se envejeció 9 h con `UPDATE` en PostgreSQL):
+
+| Paso | Resultado |
+|---|---|
+| `/chat` con token vigente | Chat visible |
+| `/chat` con token caducado | Redirige a `/login?motivo=expirada` |
+| Token caducado en PostgreSQL tras usarlo | Borrado (0 filas) |
+| `/login?motivo=expirada` | "Tu sesión expiró. Inicia sesión de nuevo." |
+| `/login` sin parámetro | Sin aviso |
+| Nuevo login | Token distinto; `/api/users/me/` responde 200 |
+
+## 8. Bandeja del asesor (21 de octubre de 2026)
+
+| Herramienta | Qué comprueba | Resultado |
+|---|---|---|
+| pytest `test_advisor.py` (17 casos) | Filtro por estado y `user_name`; respuesta guardada como `asesor`; el cliente la ve en `latest`; cliente sin permiso para responder o cerrar (403); validación; 404; cierre; 409 en conversación cerrada; el cliente continúa en una nueva | 17 de 17 |
+| Newman, carpeta "4b. Bandeja del asesor" (9 peticiones) | Lo mismo contra el stack real | 0 fallos |
+| Playwright, prueba 8 | Cliente y asesor en dos navegadores: derivación, respuesta, cierre y nueva conversación | Correcta |
+
+## 9. Pendiente
+
+- Reducir la latencia con 100 usuarios concurrentes (sección 4).
+- Pruebas de CORS (entrega del 80 %).

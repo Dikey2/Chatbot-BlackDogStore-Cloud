@@ -43,7 +43,9 @@ export default function Home() {
         <Link href="/chat">Chat</Link>
         <Link href="/login">Iniciar sesión</Link>
         <Link href="/registro">Crear cuenta</Link>
-        <Link href="/en-desarrollo">Panel administrativo (en desarrollo)</Link>
+        <Link href="/admin/faqs">Administrar FAQ</Link>
+        <Link href="/asesor">Bandeja del asesor</Link>
+        <Link href="/en-desarrollo">Catálogo de productos (en desarrollo)</Link>
       </nav>
     </main>
   );

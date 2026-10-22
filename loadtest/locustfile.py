@@ -41,6 +41,9 @@ class Cliente(HttpUser):
         response = self.client.post(
             "/api/auth/login/", json={"email": email, "password": PASSWORD}
         )
+        if response.status_code != 200:
+            # El fallo ya queda contado por Locust; sin sesión este usuario no sigue.
+            raise StopUser()
         self.auth = {"Authorization": f"Token {response.json()['token']}"}
         self.question = 0
 
