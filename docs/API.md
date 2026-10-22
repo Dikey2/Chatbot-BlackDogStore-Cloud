@@ -11,14 +11,16 @@ Colección Postman con ejemplos y pruebas: [`postman/BlackDogStore.postman_colle
 Authorization: Token <token>
 ```
 
-El cierre de sesión borra el token en el servidor. El token todavía no caduca por tiempo; la expiración está planificada para la entrega del 80 %.
+El token caduca a las `TOKEN_TTL_HOURS` horas de crearse (8 por defecto). El login devuelve `expires_at`. Un token caducado responde 401 con `code: token_expired` y se borra. Un nuevo login reutiliza el token si sigue vigente y crea otro si caducó. El cierre de sesión borra el token en el servidor.
+
+El frontend guarda el token en una cookie `httpOnly` que caduca a la vez. Si la API indica `token_expired`, envía a `/login?motivo=expirada`, que muestra "Tu sesión expiró".
 
 ## Roles
 
 | Rol | Cómo se obtiene | Permisos actuales |
 |---|---|---|
 | `cliente` | Registro público | Chat, historial propio, lectura de FAQ activas |
-| `asesor` | `seed_demo` o administrador de Django | Lo anterior y lectura de todas las conversaciones |
+| `asesor` | `seed_demo` o administrador de Django | Lo anterior; bandeja de todas las conversaciones, responder y cerrar |
 | `admin` | `seed_demo` o `createsuperuser` | Lo anterior, CRUD de FAQ y lectura de FAQ inactivas |
 
 El registro público siempre crea `cliente`; un campo `role` enviado por el cliente se ignora.
@@ -41,6 +43,8 @@ El registro público siempre crea `cliente`; un campo `role` enviado por el clie
 | GET | `/api/chat/conversations/` | Sesión | 200 paginado | 401 |
 | GET | `/api/chat/conversations/latest/` | Sesión | 200 con mensajes; 204 si no hay | 401 |
 | GET | `/api/chat/conversations/{id}/` | Sesión | 200 con mensajes | 401, 404 |
+| POST | `/api/chat/conversations/{id}/reply/` | `asesor`, `admin` | 201 | 400, 401, 403, 404, 409 |
+| POST | `/api/chat/conversations/{id}/close/` | `asesor`, `admin` | 200 | 401, 403, 404, 409 |
 
 Cualquier otra ruta bajo `/api/` responde 404. Un método no permitido responde 405.
 
@@ -50,7 +54,7 @@ Cualquier otra ruta bajo `/api/` responde 404. Un método no permitido responde 
 // POST /api/auth/register/   -> 201 {"id", "name", "email", "role"}
 {"name": "Ana Ficticia", "email": "ana@example.com", "password": "Clave-ficticia-123"}
 
-// POST /api/auth/login/      -> 200 {"token", "user": {...}}
+// POST /api/auth/login/      -> 200 {"token", "expires_at", "user": {...}}
 {"email": "ana@example.com", "password": "Clave-ficticia-123"}
 
 // POST /api/faqs/            -> 201 FAQ completa
@@ -80,6 +84,8 @@ Reglas:
 - Si ninguna FAQ coincide, `escalated` es `true` y la conversación pasa a `derivada` (RF-09).
 - `GET /api/chat/conversations/latest/` devuelve la última conversación **del usuario de la sesión** con sus mensajes en orden cronológico. Filtra por usuario también para asesor y administrador. El chat web la usa para recuperar el historial al entrar o recargar.
 - El listado y el detalle de conversaciones muestran todas al asesor y al administrador; al cliente, solo las suyas. Una conversación ajena responde 404.
+- `GET /api/chat/conversations/?status=derivada` filtra por estado (`abierta`, `derivada`, `cerrada`). Cada conversación incluye `user_name`.
+- `reply` guarda un mensaje con `sender: "asesor"` (1 a 2000 caracteres). `close` pasa la conversación a `cerrada`. En una conversación cerrada, `reply`, `close` y `POST /api/chat/messages/` con su `conversation_id` responden 409; el cliente continúa sin `conversation_id` y se crea otra.
 - `GET /api/faqs/?category=horarios` filtra por categoría. `?page=2` cambia de página (20 por página).
 
 ## Formato de errores
@@ -93,10 +99,11 @@ Todos los errores usan la misma forma. `fields` solo aparece en errores de valid
 | HTTP | `code` | Cuándo |
 |---|---|---|
 | 400 | `validation_error`, `parse_error` | Datos inválidos o JSON mal formado |
-| 401 | `not_authenticated`, `authentication_failed` | Falta el token, token inválido o credenciales incorrectas |
+| 401 | `not_authenticated`, `authentication_failed`, `token_expired` | Falta el token, token inválido o caducado, o credenciales incorrectas |
 | 403 | `permission_denied` | El rol no tiene permiso |
 | 404 | `not_found` | Recurso o ruta inexistente |
 | 405 | `method_not_allowed` | Método no permitido |
+| 409 | `conversation_closed` | La conversación está cerrada |
 | 415 | `unsupported_media_type` | El cuerpo no es JSON |
 | 429 | `throttled` | Límite de peticiones superado; incluye la cabecera `Retry-After` |
 | 500 | `server_error` | Error no previsto; el detalle queda solo en los logs |
@@ -117,7 +124,7 @@ Valores por defecto, configurables en `.env`.
 
 Limitaciones conocidas:
 
-- Los contadores están en la memoria del proceso. Con varios procesos o réplicas hará falta una caché compartida.
+- Los contadores se guardan en una caché compartida en PostgreSQL (`django_cache`), así que valen para todos los procesos de gunicorn. Sobreviven al reinicio del backend.
 - La IP se toma de `X-Forwarded-For` cuando existe, porque el frontend reenvía la del visitante. Como el puerto 8000 solo se publica en `127.0.0.1`, esto es aceptable en local. Antes de publicar el backend hay que configurar `NUM_PROXIES` de DRF.
 
 ## Servicio de chatbot (interno)

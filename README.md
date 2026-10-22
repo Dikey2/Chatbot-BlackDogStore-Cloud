@@ -8,7 +8,7 @@ Prototipo académico del curso Desarrollo de Soluciones en la Nube. Está aislad
 | [docs/API.md](docs/API.md) | Endpoints, roles, errores y rate limits |
 | [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md) | Diagrama entidad-relación editable y tablas |
 | [docs/PRUEBAS.md](docs/PRUEBAS.md) | Pruebas ejecutadas, resultados y cómo repetirlas |
-| [infra/aws/README.md](infra/aws/README.md) | Diseño de IAM y S3 (sin recursos creados) |
+| [infra/aws/README.md](infra/aws/README.md) | Diseño de IAM y S3 y script `preparar-s3.sh` (sin recursos creados) |
 
 ## Requisitos
 
@@ -44,6 +44,8 @@ El backend aplica las migraciones al iniciar.
 3. Preguntar "¿Cuál es el horario?": responde una FAQ.
 4. Preguntar "¿Cuánto cuesta la laptop X?": no hay FAQ y la consulta se deriva a un asesor.
 5. Cerrar sesión. `/chat` vuelve a pedir login.
+6. Entrar como `asesor@example.com` y abrir "Bandeja del asesor" (`/asesor`): ver la consulta derivada del paso 4, responderla y cerrarla. Al recargar `/chat`, el cliente ve la respuesta.
+7. Entrar como `admin@example.com` y abrir "Administrar FAQ" (`/admin/faqs`): crear, editar, desactivar o eliminar preguntas. El chatbot usa los cambios en la siguiente consulta.
 
 ## Comandos
 
@@ -55,7 +57,7 @@ docker compose down                                      # detener (conserva los
 docker compose run --rm backend pytest                   # pruebas de la API (usa PostgreSQL)
 docker compose run --rm chatbot pytest                   # pruebas del chatbot
 cd frontend && npm run lint && npx tsc --noEmit          # verificación del frontend
-cd frontend && npm run test:e2e                          # Playwright, con el stack levantado
+cd frontend && DEMO_PASSWORD=... npm run test:e2e        # Playwright, con el stack levantado
 
 # Crear migraciones después de cambiar modelos (escribe en ./backend)
 docker compose run --rm -v "$PWD/backend:/app" backend python manage.py makemigrations
@@ -78,5 +80,5 @@ Después de cambiar código hay que reconstruir: `docker compose up -d --build`.
 - Las contraseñas se guardan con hash PBKDF2-SHA256.
 - El token de sesión se guarda en una cookie `httpOnly`; el navegador nunca llama a la API.
 - Rate limits en registro, login, chat y resto de la API.
-- El backend usa el servidor de desarrollo de Django. No es apto para publicar.
+- El backend corre con gunicorn (4 procesos). `DEBUG=true` en `.env` es solo para el entorno local; antes de publicar hay que ponerlo en `false` y revisar `ALLOWED_HOSTS`.
 - No se ha creado ningún recurso en AWS.

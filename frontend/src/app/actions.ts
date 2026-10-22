@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { api, type ApiError } from "@/lib/api";
 import type { ChatMessage } from "@/lib/chat";
-import { clearToken, getToken, saveToken, type User } from "@/lib/session";
+import { clearToken, getToken, loginPath, saveToken, type User } from "@/lib/session";
 
 export type FormState = {
   message?: string;
@@ -16,11 +16,11 @@ function failure(error: ApiError, values: Record<string, string>): FormState {
 }
 
 async function login(email: string, password: string) {
-  const result = await api<{ token: string; user: User }>("/api/auth/login/", {
+  const result = await api<{ token: string; expires_at: string; user: User }>("/api/auth/login/", {
     method: "POST",
     body: { email, password },
   });
-  if (result.ok) await saveToken(result.data.token);
+  if (result.ok) await saveToken(result.data.token, result.data.expires_at);
   return result;
 }
 
@@ -91,7 +91,7 @@ export async function sendMessageAction(
   }
   if (result.status === 401) {
     await clearToken();
-    redirect("/login");
+    redirect(loginPath(result.error));
   }
   const fieldError = result.error.fields?.message?.[0];
   return { ok: false, message: fieldError ?? result.error.message };

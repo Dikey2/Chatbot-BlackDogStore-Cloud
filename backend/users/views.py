@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from .authentication import is_expired, token_ttl
 from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
 
 
@@ -41,7 +42,18 @@ class LoginView(APIView):
             # Mismo mensaje para correo inexistente y contraseña errónea.
             raise AuthenticationFailed("Correo o contraseña incorrectos.")
         token, _ = Token.objects.get_or_create(user=user)
-        return Response({"token": token.key, "user": UserSerializer(user).data})
+        if is_expired(token):
+            # Se reutiliza el token vigente (varias sesiones); uno caducado se reemplaza.
+            token.delete()
+            token = Token.objects.create(user=user)
+        expires_at = token.created + token_ttl()
+        return Response(
+            {
+                "token": token.key,
+                "expires_at": expires_at.isoformat(),
+                "user": UserSerializer(user).data,
+            }
+        )
 
     def get_authenticate_header(self, request):
         # Sin esto DRF convierte el 401 en 403 porque la vista no tiene autenticadores.

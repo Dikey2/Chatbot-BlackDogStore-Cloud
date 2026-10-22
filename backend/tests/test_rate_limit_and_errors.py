@@ -69,3 +69,8 @@ def test_unsupported_media_type_gives_415(api):
 def test_404_does_not_reveal_internal_model_names(api, db):
     response = api.get("/api/faqs/9999/")
     assert response.json() == {"error": {"code": "not_found", "message": "Recurso no encontrado."}}
+
+
+def test_rate_limit_counters_use_shared_database_cache(settings):
+    # Varios procesos de gunicorn deben compartir los contadores.
+    assert settings.CACHES["default"]["BACKEND"] == "django.core.cache.backends.db.DatabaseCache"

@@ -2,14 +2,17 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
+from core.permissions import STAFF_ROLES, IsStaffRole
 from faqs.models import FAQ
 
 from .models import Conversation, Message
 from .serializers import (
+    AdvisorReplySerializer,
     ConversationDetailSerializer,
     ConversationSerializer,
     MessageSerializer,
@@ -18,11 +21,18 @@ from .serializers import (
 from .services import ask_chatbot
 
 
+class ConversationClosed(APIException):
+    status_code = 409
+    default_code = "conversation_closed"
+    default_detail = "La conversación está cerrada."
+
+
 def conversations_for(user):
     """El cliente ve solo sus conversaciones; asesor y administrador ven todas."""
-    if user.role in ("asesor", "admin"):
-        return Conversation.objects.all()
-    return Conversation.objects.filter(user=user)
+    queryset = Conversation.objects.select_related("user")
+    if user.role in STAFF_ROLES:
+        return queryset
+    return queryset.filter(user=user)
 
 
 class SendMessageView(APIView):
@@ -41,6 +51,9 @@ class SendMessageView(APIView):
             conversation = get_object_or_404(
                 Conversation, pk=conversation_id, user=request.user
             )
+            if conversation.status == Conversation.Status.CERRADA:
+                # Tras el cierre del asesor, el cliente empieza una conversación nueva.
+                raise ConversationClosed()
 
         faqs = [
             {"category": faq.category, "answer": faq.answer, "keywords": faq.keyword_list()}
@@ -76,7 +89,11 @@ class SendMessageView(APIView):
 
 class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
-        return conversations_for(self.request.user)
+        queryset = conversations_for(self.request.user)
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        return queryset
 
     def get_serializer_class(self):
         if self.action in ("retrieve", "latest"):
@@ -92,8 +109,36 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
         204 si el usuario aún no tiene conversaciones.
         """
         conversation = (
-            Conversation.objects.filter(user=request.user).prefetch_related("messages").first()
+            Conversation.objects.filter(user=request.user)
+            .select_related("user")
+            .prefetch_related("messages")
+            .first()
         )
         if conversation is None:
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(self.get_serializer(conversation).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsStaffRole])
+    def reply(self, request, pk=None):
+        """Respuesta de un asesor o administrador a una conversación (RF-09)."""
+        conversation = self.get_object()
+        if conversation.status == Conversation.Status.CERRADA:
+            raise ConversationClosed()
+        serializer = AdvisorReplySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        message = Message.objects.create(
+            conversation=conversation,
+            sender=Message.Sender.ASESOR,
+            content=serializer.validated_data["message"],
+        )
+        return Response(MessageSerializer(message).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsStaffRole])
+    def close(self, request, pk=None):
+        """Marca la conversación como atendida. El cliente seguirá en una nueva."""
+        conversation = self.get_object()
+        if conversation.status == Conversation.Status.CERRADA:
+            raise ConversationClosed()
+        conversation.status = Conversation.Status.CERRADA
+        conversation.save(update_fields=["status"])
+        return Response(ConversationSerializer(conversation).data)

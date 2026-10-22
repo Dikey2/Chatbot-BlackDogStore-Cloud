@@ -1,4 +1,4 @@
-import { chromium, expect, test, type Page } from "@playwright/test";
+import { chromium, expect, test, type Locator, type Page } from "@playwright/test";
 
 // Datos ficticios, únicos por ejecución.
 const PASSWORD = "Clave-ficticia-123";
@@ -33,8 +33,10 @@ test.describe("páginas públicas", () => {
     await expect(page.getByRole("heading", { name: "Sección en desarrollo" })).toBeVisible();
   });
 
-  test("el chat sin sesión redirige al login", async ({ page }) => {
+  test("el chat y la administración sin sesión redirigen al login", async ({ page }) => {
     await page.goto("/chat");
+    await expect(page).toHaveURL(/\/login$/);
+    await page.goto("/admin/faqs");
     await expect(page).toHaveURL(/\/login$/);
   });
 });
@@ -160,24 +162,190 @@ test.describe.serial("registro, chat, historial y sesión", () => {
     expectedHistory = history;
   });
 
-  test("otro usuario no ve el historial del primero", async ({ page }) => {
+  test("otro usuario no ve el historial; su consulta derivada la atiende un asesor", async ({
+    page,
+    browser,
+  }) => {
+    const otherName = `Otra Persona ${Date.now()}`;
     await page.goto("/registro");
     await fillAndSubmit(
       page,
       {
-        Nombre: "Otra Persona E2E",
+        Nombre: otherName,
         Correo: `e2e-otro-${Date.now()}@example.com`,
         "Contraseña (mínimo 8 caracteres)": PASSWORD,
       },
       "Registrarme",
     );
     await expect(page).toHaveURL(/\/chat$/);
-    await expect(page.getByTestId("session-user")).toHaveText("Otra Persona E2E (cliente)");
+    await expect(page.getByTestId("session-user")).toHaveText(`${otherName} (cliente)`);
     await expect(page.getByText("Escribe tu consulta para comenzar.")).toBeVisible();
     await expect(chatMessages(page)).toHaveCount(0);
     for (const text of expectedHistory) {
       await expect(page.getByText(text, { exact: true })).toHaveCount(0);
     }
     expect(expectedHistory).toHaveLength(6);
+
+    // Un cliente no puede administrar FAQ ni entrar a la bandeja del asesor.
+    await page.goto("/admin/faqs");
+    await expect(page.getByTestId("role-forbidden")).toBeVisible();
+    await expect(page.getByTestId("faq-table")).toHaveCount(0);
+    await page.goto("/asesor");
+    await expect(page.getByTestId("role-forbidden")).toBeVisible();
+
+    // Consulta sin respuesta: queda derivada.
+    await page.goto("/chat");
+    await sendMessage(page, PRECIO);
+    await expect(page.getByTestId("escalated")).toBeVisible();
+
+    test.skip(!process.env.DEMO_PASSWORD, "Definir DEMO_PASSWORD para probar la bandeja del asesor.");
+
+    // El asesor la atiende desde otro navegador.
+    const advisorContext = await browser.newContext();
+    try {
+      const advisor = await advisorContext.newPage();
+      await advisor.goto("/login");
+      await fillAndSubmit(
+        advisor,
+        { Correo: "asesor@example.com", Contraseña: process.env.DEMO_PASSWORD! },
+        "Entrar",
+      );
+      await expect(advisor).toHaveURL(/\/chat$/);
+      await advisor.getByRole("link", { name: "Bandeja del asesor" }).click();
+      await expect(advisor).toHaveURL(/\/asesor$/);
+      const row = visible(advisor.getByRole("row", { name: new RegExp(otherName) }));
+      await expect(row).toHaveCount(1);
+      await row.getByRole("link", { name: "Ver conversación" }).click();
+
+      const advisorMessages = visible(advisor.getByTestId("messages")).locator("li.message");
+      await expect(advisorMessages).toHaveCount(2);
+      await expect(advisorMessages.nth(0)).toContainText(PRECIO);
+      await expect(visible(advisor.getByTestId("conversation-status"))).toHaveText("derivada");
+
+      const reply = "DATO FICTICIO: un asesor confirmará el precio por correo.";
+      await visible(advisor.getByLabel("Respuesta al cliente")).fill(reply);
+      await visible(advisor.getByRole("button", { name: "Responder" })).click();
+      await expect(visible(advisor.getByText("Respuesta enviada."))).toBeVisible();
+      await expect(advisorMessages).toHaveCount(3);
+      await expect(advisorMessages.nth(2)).toContainText(reply);
+      await expect(visible(advisor.getByLabel("Respuesta al cliente"))).toHaveValue("");
+
+      // El cliente ve la respuesta del asesor al recargar.
+      await page.reload();
+      await expect(chatMessages(page)).toHaveCount(3);
+      await expect(chatMessages(page).nth(2)).toHaveAttribute("data-sender", "asesor");
+      await expect(chatMessages(page).nth(2)).toContainText(reply);
+
+      // El asesor no administra FAQ.
+      const conversationUrl = advisor.url();
+      await advisor.goto("/admin/faqs");
+      await expect(advisor.getByTestId("role-forbidden")).toBeVisible();
+
+      // Cierre de la conversación.
+      await advisor.goto(conversationUrl);
+      advisor.once("dialog", (dialog) => dialog.accept());
+      await advisor.getByRole("button", { name: "Cerrar conversación" }).click();
+      await expect(advisor.getByTestId("conversation-status")).toHaveText("cerrada");
+      await expect(advisor.getByTestId("conversation-closed")).toBeVisible();
+      await expect(advisor.getByLabel("Respuesta al cliente")).toHaveCount(0);
+    } finally {
+      await advisorContext.close();
+    }
+
+    // El cliente ve el cierre; su siguiente mensaje empieza otra conversación.
+    await page.reload();
+    await expect(page.getByTestId("conversation-closed")).toBeVisible();
+    await expect(chatMessages(page)).toHaveCount(3);
+    await page.getByLabel("Mensaje").fill(OTRA);
+    await page.getByRole("button", { name: "Enviar" }).click();
+    await expect(chatMessages(page)).toHaveCount(2);
+    await expect(page.getByTestId("conversation-closed")).toHaveCount(0);
+    await page.reload();
+    await expect(chatMessages(page)).toHaveCount(2);
+    await expect(chatMessages(page).nth(0)).toHaveText(OTRA);
+  });
+});
+
+// Requiere DEMO_PASSWORD (la de seed_demo):  DEMO_PASSWORD=... npm run test:e2e
+// Next.js conserva oculta en el DOM la página anterior tras navegar con un enlace
+// (React Activity). Las búsquedas se limitan a lo que el usuario ve.
+function visible(locator: Locator) {
+  return locator.filter({ visible: true });
+}
+
+test.describe("administración de preguntas frecuentes", () => {
+  test.skip(!process.env.DEMO_PASSWORD, "Definir DEMO_PASSWORD para probar el panel de administrador.");
+
+  test("el administrador crea, edita, desactiva y elimina una FAQ que usa el chatbot", async ({
+    page,
+  }) => {
+    const stamp = Date.now();
+    const keyword = `e2eclave${stamp}`;
+    const question = `¿Pregunta E2E ${stamp}?`;
+    const answer = `DATO FICTICIO E2E ${stamp}.`;
+    const edited = `DATO FICTICIO E2E editado ${stamp}.`;
+    const row = () =>
+      visible(page.getByRole("row", { name: new RegExp(question.replace(/[?¿]/g, ".")) }));
+
+    async function ask(expected: string | RegExp) {
+      await page.goto("/chat");
+      await sendMessage(page, `consulta ${keyword}`);
+      await expect(chatMessages(page).last()).toHaveText(expected);
+    }
+
+    await page.goto("/login");
+    await fillAndSubmit(
+      page,
+      { Correo: "admin@example.com", Contraseña: process.env.DEMO_PASSWORD! },
+      "Entrar",
+    );
+    await expect(page).toHaveURL(/\/chat$/);
+    await page.getByRole("link", { name: "Administrar FAQ" }).click();
+    await expect(page).toHaveURL(/\/admin\/faqs$/);
+    await expect(page.getByTestId("faq-table")).toBeVisible();
+
+    // Validación: la API rechaza palabras clave vacías y el formulario conserva lo escrito.
+    await visible(page.getByLabel("Categoría")).fill("e2e");
+    await visible(page.getByLabel("Pregunta")).fill(question);
+    await visible(page.getByLabel("Respuesta")).fill(answer);
+    await visible(page.getByLabel("Palabras clave (separadas por coma)")).fill(" , ");
+    await page.getByRole("button", { name: "Crear" }).click();
+    await expect(page.getByText("Indique al menos una palabra clave.")).toBeVisible();
+    await expect(visible(page.getByLabel("Pregunta"))).toHaveValue(question);
+
+    // Crear
+    await visible(page.getByLabel("Palabras clave (separadas por coma)")).fill(keyword);
+    await page.getByRole("button", { name: "Crear" }).click();
+    await expect(page.getByText("Pregunta frecuente creada.")).toBeVisible();
+    await expect(visible(page.getByLabel("Pregunta"))).toHaveValue("");
+    await expect(row()).toContainText("Activa");
+    await ask(answer);
+
+    // Editar
+    await page.goto("/admin/faqs");
+    await row().getByRole("link", { name: "Editar" }).click();
+    await expect(visible(page.getByLabel("Respuesta"))).toHaveValue(answer);
+    await visible(page.getByLabel("Respuesta")).fill(edited);
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(page).toHaveURL(/\/admin\/faqs$/);
+    await ask(edited);
+
+    // Desactivar: el chatbot deja de usarla y deriva la consulta.
+    await page.goto("/admin/faqs");
+    await row().getByRole("button", { name: "Desactivar" }).click();
+    await expect(row()).toContainText("Inactiva");
+    await ask(/La derivaré a un asesor/);
+
+    // Activar de nuevo y eliminar (con confirmación).
+    await page.goto("/admin/faqs");
+    await row().getByRole("button", { name: "Activar" }).click();
+    await expect(row()).toContainText("Activa");
+    page.once("dialog", (dialog) => dialog.accept());
+    await row().getByRole("button", { name: "Eliminar" }).click();
+    await expect(row()).toHaveCount(0);
+
+    // Editar una FAQ inexistente muestra la página 404.
+    await page.goto("/admin/faqs/999999");
+    await expect(page.getByRole("heading", { name: "404: página no encontrada" })).toBeVisible();
   });
 });
