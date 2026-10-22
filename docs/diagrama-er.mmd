@@ -1,0 +1,65 @@
+%% Diagrama entidad-relación. Fuente editable (Mermaid).
+%% Editar aquí o pegar en https://mermaid.live. Se muestra en docs/BASE_DE_DATOS.md.
+%% Las entidades marcadas PLANIFICADA aún no existen en la base de datos.
+erDiagram
+    USERS_USER ||--o{ CHAT_CONVERSATION : "inicia"
+    USERS_USER ||--o| AUTHTOKEN_TOKEN : "tiene sesión"
+    CHAT_CONVERSATION ||--o{ CHAT_MESSAGE : "contiene"
+    USERS_USER ||--o{ EVENTO_AUDITORIA : "genera (PLANIFICADA)"
+    CHAT_CONVERSATION ||--o{ ARCHIVO : "adjunta (PLANIFICADA)"
+
+    USERS_USER {
+        bigint id PK
+        varchar name "nombre"
+        varchar email UK "correo, usado para iniciar sesión"
+        varchar password "hash PBKDF2-SHA256, nunca texto plano"
+        varchar role "cliente | asesor | admin"
+        boolean is_active
+        boolean is_staff
+        boolean is_superuser
+        timestamptz date_joined
+        timestamptz last_login
+    }
+    AUTHTOKEN_TOKEN {
+        varchar key PK "token de sesión"
+        bigint user_id FK,UK
+        timestamptz created
+    }
+    FAQS_FAQ {
+        bigint id PK
+        varchar category "categoría, indexada"
+        varchar question "pregunta"
+        text answer "respuesta"
+        varchar keywords "palabras clave separadas por coma"
+        boolean is_active "estado"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    CHAT_CONVERSATION {
+        bigint id PK
+        bigint user_id FK
+        varchar status "abierta | derivada | cerrada"
+        timestamptz created_at
+    }
+    CHAT_MESSAGE {
+        bigint id PK
+        bigint conversation_id FK
+        varchar sender "cliente | bot | asesor"
+        text content
+        timestamptz created_at
+    }
+    EVENTO_AUDITORIA {
+        bigint id PK
+        bigint user_id FK "PLANIFICADA, RF-12"
+        varchar accion
+        varchar resultado
+        timestamptz fecha
+    }
+    ARCHIVO {
+        bigint id PK
+        bigint conversation_id FK "PLANIFICADA, RF-10"
+        varchar clave_s3
+        varchar nombre
+        varchar tipo
+        timestamptz creado_en
+    }
