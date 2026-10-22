@@ -1,0 +1,17 @@
+# Secretos
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node / Next.js
+node_modules/
+.next/
+
+# Sistema y herramientas
+.DS_Store
+graphify-out/

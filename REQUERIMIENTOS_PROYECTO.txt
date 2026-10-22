@@ -1,0 +1,366 @@
+DESARROLLO DE SOLUCIONES EN LA NUBE
+ 
+Requerimientos y plan de desarrollo
+Chatbot empresarial para Black Dog Store
+ 
+Documento de definición de alcance, requisitos funcionales, requisitos técnicos y criterios de entrega.
+ 
+Integrantes
+Villar Collantes, Alexis
+Morales Puma, Gisela
+Kana Huillcapacco, Cesar
+Ochoa Chama, Briggith
+ 
+Información
+Detalle
+Curso
+Desarrollo de Soluciones en la Nube
+Caso de estudio
+Black Dog Store
+Alcance académico
+Semanas 1 a 9 y proyección a las entregas del 25 %, 80 % y 100 %
+Estado
+Propuesta de desarrollo; componentes sujetos a implementación y pruebas
+Fecha del documento
+12 de octubre de 2026
+
+Base documental: “Pasos para presentación de entregables semana 9-11-13” (archivo proporcionado por el equipo). Se distinguen los requisitos de evaluación de las decisiones de diseño propuestas.
+
+1. Resumen del proyecto
+El proyecto propone desarrollar un chatbot para la atención de consultas frecuentes en Black Dog Store. Los clientes podrán comunicarse desde una interfaz web para consultar horarios, garantías, servicios y datos de productos. Las respuestas se obtendrán de una base de preguntas frecuentes y, cuando corresponda, de información consultada mediante una API autorizada. Los casos que requieran criterio humano podrán derivarse a un asesor.
+Se aplicarán conceptos de computación en la nube mediante contenedores, microservicios, seguridad y servicios de Amazon Web Services (AWS). Durante la etapa inicial se implementará un bot basado en reglas y preguntas frecuentes; añadir inteligencia artificial generativa será una mejora futura, no una dependencia del entregable inicial.
+1.1. Problema identificado
+Una tienda de tecnología recibe consultas repetidas sobre características, disponibilidad, servicios técnicos y condiciones de compra. La atención exclusivamente manual puede producir demoras y dificultar la organización del historial de solicitudes.
+1.2. Objetivo general
+Diseñar y desarrollar un sistema web de atención automatizada para Black Dog Store, basado en microservicios y contenedores, incorporando controles de seguridad y recursos AWS para apoyar la gestión de accesos y archivos.
+1.3. Objetivos específicos
+Construir una interfaz web de chat, registro e inicio de sesión.
+Implementar servicios independientes para conversaciones y consultas de información.
+Crear y documentar endpoints REST, con respuestas HTTP controladas.
+Gestionar usuarios, perfiles, permisos, preguntas frecuentes e historial.
+Configurar AWS IAM y un bucket de Amazon S3 bajo permisos restringidos.
+Realizar pruebas unitarias, de integración, seguridad y carga según cada entrega.
+1.4. Alcance y límites
+Incluido en el alcance
+Fuera del alcance inicial / condicionado
+Chat web, autenticación, FAQ, historial, roles y administración.
+Respuestas generadas por un modelo de IA avanzada (fase futura).
+Contenedores Docker y microservicios separados.
+Integraciones con WhatsApp, Instagram y TikTok.
+Pruebas en entorno aislado y servicios de IAM y S3.
+Cambios directos o despliegues en el sitio comercial en producción.
+Consulta autorizada de datos de catálogo, si el contrato de API existe.
+Acceso directo del chatbot a la base de datos comercial, pagos u operaciones sensibles.
+
+El proyecto se desarrollará de forma separada del sistema comercial existente. Una integración real se hará solo con endpoints autorizados y previa revisión técnica.
+2. Alineación con los temas del curso
+Semana / tema
+Aplicación prevista
+1. Introducción al Cloud Computing
+Justificación del uso de servicios en la nube y acceso web al chatbot.
+2. Modelos de nube
+Elección de nube pública AWS y explicación del uso de infraestructura/servicios.
+3. Contenedores
+Dockerfile y Docker Compose para aplicaciones y pruebas locales.
+4. Microservicios
+Separación lógica de chat, catálogo y usuarios/autenticación.
+5. Microservicios II
+Comunicación mediante API REST, contratos y gestión de errores.
+6. Seguridad, auditoría y cumplimiento
+Login, roles, protección de contraseñas, límites de solicitudes y registros.
+7. Descripción de AWS
+Mapa de servicios y preparación de recursos Cloud.
+8. Creación de cuentas IAM
+Configuración de identidades y políticas de permisos mínimos.
+9. Buckets de Amazon S3
+Creación y configuración de bucket para documentos y archivos de prueba.
+
+3. Requerimientos funcionales propuestos
+Los siguientes requisitos describen qué se desarrollará para el caso de estudio. No son una transcripción literal de los criterios del docente: representan el diseño funcional propuesto por el equipo.
+ID
+Requerimiento
+Comportamiento esperado
+RF-01
+Registro de usuarios
+Alta con nombre, correo y contraseña; validación de campos.
+RF-02
+Inicio y cierre de sesión
+Autenticación segura y finalización de sesión.
+RF-03
+Chat web
+Interfaz para enviar preguntas y recibir respuestas automáticas.
+RF-04
+Preguntas frecuentes
+Consulta por categorías; respuesta desde contenido administrado.
+RF-05
+Historial de conversaciones
+Guardar y recuperar conversaciones según permisos.
+RF-06
+Consulta de catálogo
+Buscar datos disponibles por API autorizada; no inventar precios ni stock.
+RF-07
+Panel administrativo
+CRUD de preguntas frecuentes y revisión de conversaciones.
+RF-08
+Roles
+Diferenciar cliente, asesor y administrador.
+RF-09
+Derivación a asesor
+Marcar consultas no resueltas para revisión humana.
+RF-10
+Gestión de archivos
+Subir/consultar documentos permitidos mediante S3.
+RF-11
+Errores y estados
+Visualizar páginas 404, en desarrollo y errores de servidor.
+RF-12
+Auditoría
+Registrar accesos y operaciones relevantes.
+
+3.1. Reglas funcionales clave
+El chatbot responderá con información verificable y autorizada; de no existir, indicará que se requiere confirmación.
+El cliente podrá consultar únicamente sus conversaciones y recursos permitidos.
+Las acciones de administración estarán restringidas a personal autorizado.
+El componente de chat no dispondrá de acceso directo a credenciales ni datos privados de la tienda.
+Las pruebas y datos ficticios se usarán antes de habilitar cualquier enlace con información real.
+4. Requerimientos no funcionales propuestos
+ID
+Categoría
+Criterio o medida propuesta
+RNF-01
+Seguridad
+Contraseñas con hash seguro; credenciales fuera del repositorio; HTTPS al publicar.
+RNF-02
+Autorización
+Control de roles y restricciones por recurso o endpoint.
+RNF-03
+Disponibilidad
+Pantallas útiles ante fallos; incidentes registrados con causa y solución.
+RNF-04
+Rendimiento
+Paginación y pruebas de carga con latencia, errores y uso de recursos medidos.
+RNF-05
+Mantenibilidad
+Código organizado en servicios; variables de entorno y documentación de API.
+RNF-06
+Escalabilidad
+Servicios aislados para permitir ampliaciones y diagnóstico por componente.
+RNF-07
+Trazabilidad
+Logs estructurados sin contraseñas, tokens ni información sensible.
+RNF-08
+Respaldo
+Política de backups y una prueba documentada de recuperación, si aplica.
+
+5. Arquitectura y tecnologías de desarrollo
+Arquitectura conceptual propuesta:
+Capa / componente
+Tecnología propuesta
+Responsabilidad
+Interfaz web
+Next.js
+Vista del chatbot, autenticación y panel de administración.
+API / autenticación
+Django + Django REST Framework
+Endpoints, validación de sesiones, roles y coordinación.
+Servicio de chatbot
+Python / API REST
+Selección de respuestas de FAQ y procesamiento de consultas.
+Servicio de catálogo
+API REST
+Lectura de datos de productos mediante contrato autorizado.
+Base de datos académica
+PostgreSQL
+Usuarios, conversaciones, mensajes, FAQ y auditoría.
+Contenedores
+Docker + Docker Compose
+Entornos aislados para ejecutar y probar servicios.
+AWS IAM
+Amazon Web Services
+Gestión de identidades y permisos de acceso a recursos AWS.
+AWS S3
+Amazon Web Services
+Almacenamiento de documentos y archivos de prueba.
+Servidor de despliegue
+Por definir según recursos disponibles
+Hospedaje del sistema para la fase del 80 %.
+
+5.1. Flujo principal
+Cliente → interfaz Next.js → API Django → servicio de chatbot → FAQ o catálogo autorizado → respuesta al cliente. Los mensajes y estados se guardan en PostgreSQL. Los archivos permitidos se administran en S3 mediante servicios con credenciales y permisos mínimos.
+5.2. Separación por microservicios
+Servicio de usuarios: registro, login, autorización y roles.
+Servicio de chatbot: procesamiento de consultas, reglas y derivación.
+Servicio de catálogo: adaptador de consulta a la fuente autorizada de productos.
+Persistencia: base de datos académica y almacenamiento de archivos según el tipo de información.
+5.3. Endpoints iniciales propuestos
+Método
+Ruta de ejemplo
+Uso previsto
+POST
+/api/auth/register/
+Registrar una cuenta.
+POST
+/api/auth/login/
+Iniciar sesión.
+GET
+/api/users/me/
+Ver el perfil de usuario autenticado.
+POST
+/api/chat/messages/
+Enviar un mensaje al chatbot.
+GET
+/api/chat/conversations/
+Consultar historial paginado.
+GET
+/api/faqs/
+Listar preguntas frecuentes.
+POST
+/api/faqs/
+Crear una pregunta frecuente (admin).
+GET
+/api/products/search/
+Consultar productos disponibles por API autorizada.
+
+Las rutas son referenciales. La auditoría determinará si se reutilizan endpoints existentes o se implementan otros en el prototipo.
+6. Modelo de datos inicial
+Entidad
+Campos principales (propuesta)
+Relaciones
+Usuario
+id, nombre, correo, hash_contraseña, rol
+1:N con conversación; 1:N con eventos.
+Conversación
+id, usuario_id, estado, creada_en
+1:N con mensaje.
+Mensaje
+id, conversación_id, emisor, contenido, fecha
+N:1 con conversación.
+PreguntaFrecuente
+id, categoría, pregunta, respuesta, estado
+Administrada por personal autorizado.
+Archivo
+id, clave_s3, nombre, tipo, creado_en
+Asociación opcional a conversación.
+EventoAuditoría
+id, usuario_id, acción, resultado, fecha
+N:1 con usuario (si aplica).
+
+En el entregable debe adjuntarse además un diagrama entidad-relación editable, no solo esta tabla descriptiva.
+7. Requisitos de evaluación y plan de cumplimiento
+Los ítems de esta sección se basan directamente en el documento “Pasos para presentación de entregables semana 9-11-13”. Se conservan los requisitos obligatorios y se identifican los extras por separado.
+7.1. Entrega del 25 % — semana 9
+Criterio exigido por el docente
+Cómo se demostrará en el proyecto
+Entorno cloud preparado; no requiere proyecto subido aún
+Cuenta/entorno AWS listo, recursos visibles y evidencias.
+Endpoints desarrollados
+Listado de rutas y pruebas de solicitudes/respuestas.
+Registro y login diferenciados y funcionales
+Demostración de ambas pantallas y validaciones.
+Rate limits en peticiones
+Límites configurados y prueba de bloqueo por exceso.
+Vista para página inexistente o en desarrollo
+Pantalla 404 y pantalla de mantenimiento/en desarrollo.
+Control de respuestas HTTP
+Casos de éxito, validación, autenticación y error.
+CRUD estructurado y comenzado
+Primeras operaciones de preguntas frecuentes.
+Variables de entorno (.env)
+Configuración separada; .env.example y secretos no publicados.
+Cifrado de contraseñas
+Almacenamiento con hash seguro, nunca texto plano.
+Pruebas unitarias y masivas mínimas
+Resultados y evidencias reproducibles.
+BD conectada y diagrama editable en documentación
+Prueba de conexión y archivo fuente del diagrama ER.
+Pruebas de servidor aprox. 50–100
+Escenario definido y reporte de tiempos/errores.
+
+Extras mencionados en el archivo: cifrar el código y diagrama de BD. El diagrama de BD también aparece como parte del requisito principal de base de datos; se incluirá para evitar omisiones. El “cifrado de código” se evaluará separadamente como opcional.
+7.2. Entrega del 80 % — semana 11
+Criterio exigido por el docente
+Cómo se demostrará en el proyecto
+CRUD completo y funcional
+Crear, leer, editar y eliminar FAQ con permisos.
+Paginación con tiempos cómodos
+Listados paginados e informe de latencia.
+Múltiples tipos de usuario
+Cliente, asesor y administrador diferenciados.
+Proyecto subido al servidor
+URL o acceso de prueba y evidencia del despliegue.
+BD completa, conectada y diagrama
+Modelo actualizado y diagrama editable.
+CORS restringido
+Validación de orígenes autorizados y rechazados.
+Pruebas previas de estabilidad
+Ensayos de integridad y monitoreo del servidor.
+Autenticación y autorización
+Accesos permitidos y denegados por rol.
+Ingreso mediante cuenta de correo
+Login por correo electrónico.
+Control de tokens expirados y rutas protegidas
+Pruebas de expiración y acceso indebido.
+Pantallas ante caídas y errores
+Manejo visible de fallos previstos.
+Pruebas de servidor aprox. 1,000–5,000
+Reporte de carga, métricas y errores.
+Backups si aplica
+Evidencia de política y restauración de prueba.
+
+Extras del 80 %: VPC para datos sensibles; uso de recursos del computador para optimizar rendimiento cuando corresponda.
+7.3. Entrega final del 100 % — semana 13
+Criterio exigido por el docente
+Cómo se demostrará en el proyecto
+Proyecto funcional al 100 %
+Demostración integral de los casos de uso comprometidos.
+Pruebas de servidor aprox. 10,000–50,000
+Escenario controlado, gráficas de carga y resultados.
+Control de cuellos de botella
+Identificación, optimización y comparación antes/después.
+Logs estructurados
+Eventos de servicio, autenticación y errores consultables.
+Errores previstos y caídas gestionadas
+Respuesta, causa, tiempos y solución documentada.
+
+Extras finales: pipeline CI/CD y estrategia de migración de servidor minimizando interrupciones. El docente también solicita documentación actualizada y evidencias de causas/soluciones en caídas. Para la presentación final, la presencia de todo el equipo y la vestimenta formal son requisitos organizativos.
+8. Estrategia de pruebas y evidencias
+Tipo de prueba
+Qué se verificará
+Evidencia sugerida
+Unitaria
+Funciones del bot, validación y control de acceso.
+Reporte de test y casos que pasan/fallan.
+API / integración
+Contratos entre servicios y base de datos.
+Colección de solicitudes y resultados HTTP.
+Seguridad
+Rate limits, CORS, roles, tokens y rutas protegidas.
+Capturas de solicitudes autorizadas y denegadas.
+Rendimiento / carga
+Latencia, throughput, errores y uso de CPU/RAM.
+Tabla y gráficos por número de solicitudes/usuarios.
+Resiliencia
+Servidor indisponible, reinicio de servicio y recuperación.
+Capturas de pantalla y logs, causa y solución.
+Respaldo
+Recuperación de datos de una copia si corresponde.
+Registro de backup y restauración.
+
+8.1. Interpretación de las cifras de prueba
+El material del docente menciona rangos aproximados de 50–100, 1,000–5,000 y 10,000–50,000, pero no define explícitamente si son usuarios concurrentes, peticiones acumuladas u otra variable. Antes de ejecutar las pruebas se debe acordar un escenario reproducible y reportarlo claramente, sin asumir que las cifras representan usuarios simultáneos.
+8.2. Seguridad durante pruebas de carga
+Las pruebas masivas se realizarán únicamente en un entorno controlado con autorización. Se debe evitar dirigir cargas de prueba a la web comercial en producción o provocar consumos no previstos en AWS.
+9. Entregables documentales
+Documento de requisitos y alcance actualizado en cada presentación.
+Diagrama de arquitectura de contenedores y microservicios.
+Diagrama entidad-relación editable y descripción de tablas.
+Listado y contratos de endpoints con ejemplos de respuestas HTTP.
+Manual breve de ejecución con Docker y variables de entorno.
+Evidencias de IAM, S3 y configuración de seguridad.
+Informes de pruebas funcionales, seguridad, carga y errores.
+Registro de incidencias y soluciones, cuando ocurran.
+10. Criterio general de aprobación del proyecto
+El prototipo se considerará listo cuando sus módulos comprometidos funcionen en el entorno de evaluación, el equipo pueda demostrar roles, chat, preguntas frecuentes, persistencia, endpoints, seguridad, recursos AWS y los controles exigidos en la entrega correspondiente. Las mejoras opcionales se mostrarán como adicionales y no sustituirán ningún requisito obligatorio.
+Fuente y observaciones
+Requisitos académicos: “Pasos para presentación de entregables semana 9-11-13”, archivo proporcionado por el equipo. El archivo no especifica fechas calendario, proveedor de despliegue obligatorio, modelo de IA ni definición de concurrencia en las pruebas; esas decisiones quedan abiertas.
+Decisiones de diseño propuestas por el equipo: caso Black Dog Store, Next.js, Django, Docker, PostgreSQL, chatbot por reglas/FAQ y configuración AWS IAM/S3. Estas decisiones se presentan como plan y no como componentes ya implementados.

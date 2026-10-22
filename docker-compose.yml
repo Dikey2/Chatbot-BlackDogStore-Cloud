@@ -1,0 +1,68 @@
+name: blackdog-chatbot
+
+# Entorno local de desarrollo. Los puertos se publican solo en 127.0.0.1.
+# PostgreSQL no se publica: se accede con `docker compose exec db psql`.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?definir en .env}
+      POSTGRES_USER: ${POSTGRES_USER:?definir en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?definir en .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  chatbot:
+    build: ./services/chatbot
+    environment:
+      CHATBOT_SECRET_KEY: ${CHATBOT_SECRET_KEY:?definir en .env}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+    ports:
+      - "127.0.0.1:8001:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?definir en .env}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+      CHATBOT_SERVICE_URL: http://chatbot:8000
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      THROTTLE_ANON: ${THROTTLE_ANON:-60/min}
+      THROTTLE_USER: ${THROTTLE_USER:-120/min}
+      THROTTLE_AUTH: ${THROTTLE_AUTH:-10/min}
+      THROTTLE_CHAT: ${THROTTLE_CHAT:-30/min}
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      chatbot:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    environment:
+      API_INTERNAL_URL: http://backend:8000
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

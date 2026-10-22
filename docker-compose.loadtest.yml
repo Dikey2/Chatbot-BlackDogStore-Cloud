@@ -1,0 +1,28 @@
+# Solo para pruebas de carga locales. Uso: ver docs/PRUEBAS.md.
+#
+# Sube los rate limits del backend: todas las peticiones de Locust salen de una
+# misma IP y, con los límites normales, la prueba mediría el bloqueo (429) y no
+# el rendimiento. El rate limit se comprueba aparte con pytest.
+services:
+  backend:
+    environment:
+      THROTTLE_ANON: 100000/min
+      THROTTLE_USER: 100000/min
+      THROTTLE_AUTH: 100000/min
+      THROTTLE_CHAT: 100000/min
+
+  locust:
+    image: locustio/locust:2.46.7
+    profiles: ["loadtest"]
+    working_dir: /mnt/locust
+    volumes:
+      - ./loadtest:/mnt/locust
+    environment:
+      TOTAL_REQUESTS: ${TOTAL_REQUESTS:-100}
+    command: >
+      -f locustfile.py --headless
+      --users ${LOAD_USERS:-5} --spawn-rate ${LOAD_USERS:-5}
+      --host http://backend:8000
+      --csv resultados/carga --html resultados/carga.html --only-summary
+    depends_on:
+      - backend
