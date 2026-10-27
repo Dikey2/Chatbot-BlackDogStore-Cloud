@@ -79,10 +79,9 @@ ROOT_URLCONF = "config.urls"
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-
 TEMPLATES = [
     {
-        "BACKEND": "django.template.backends.django",
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -90,7 +89,7 @@ TEMPLATES = [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
-                "django.contrib.auth.context_processors.messages",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
@@ -129,10 +128,10 @@ DATABASES = {
 # CONEXIÓN SSL PARA NEON POSTGRESQL
 # ==========================================================
 
-# Para Docker local no es necesario establecer SSL.
-# En Render usaremos POSTGRES_SSLMODE=require.
-# El modo verify-full se puede configurar posteriormente
-# para verificar también la identidad del servidor.
+# En Docker local no necesitamos habilitar SSL.
+# En Render utilizaremos POSTGRES_SSLMODE=require.
+# En una configuración más estricta se puede utilizar
+# verify-full para verificar la identidad del servidor.
 
 POSTGRES_SSLMODE = os.environ.get(
     "POSTGRES_SSLMODE", ""
@@ -155,8 +154,8 @@ AUTH_USER_MODEL = "users.User"
 # CACHÉ COMPARTIDA EN POSTGRESQL
 # ==========================================================
 
-# Se utiliza para compartir los contadores de rate limit
-# entre los distintos procesos Gunicorn.
+# Guarda los contadores de rate limit para compartirlos
+# entre los procesos Gunicorn.
 
 CACHES = {
     "default": {
@@ -215,6 +214,7 @@ REST_FRAMEWORK = {
         "users.authentication.ExpiringTokenAuthentication"
     ],
 
+    # Se requiere autenticación por defecto.
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated"
     ],
@@ -229,6 +229,7 @@ REST_FRAMEWORK = {
         "core.errors.exception_handler"
     ),
 
+    # Límites de peticiones.
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
