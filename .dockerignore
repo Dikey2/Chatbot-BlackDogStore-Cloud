@@ -1,0 +1,16 @@
+.git
+.env
+.env.*
+**/.env
+**/.env.*
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/node_modules
+**/.next
+**/.venv
+docs/
+frontend/
+loadtest/
+graphify-out/
+infra/aws/
