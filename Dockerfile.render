@@ -6,19 +6,20 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Dependencias de ambos servicios.
-COPY backend/requirements.txt /tmp/backend-requirements.txt
-COPY services/chatbot/requirements.txt /tmp/chatbot-requirements.txt
+# Dependencias con versiones y hashes verificados.
+COPY requirements.render.lock /tmp/requirements.render.lock
 
-RUN pip install --no-cache-dir \
-    -r /tmp/backend-requirements.txt \
-    -r /tmp/chatbot-requirements.txt
+RUN python -m pip install \
+    --no-cache-dir \
+    --only-binary=:all: \
+    --require-hashes \
+    -r /tmp/requirements.render.lock
 
 # Aplicaciones independientes.
 COPY backend/ /app/backend/
 COPY services/chatbot/ /app/services/chatbot/
 
-# Script que iniciará los dos servicios.
+# Script de inicio de ambos servicios.
 COPY infra/render/start.py /app/start.py
 
 # Usuario sin privilegios de administrador.
