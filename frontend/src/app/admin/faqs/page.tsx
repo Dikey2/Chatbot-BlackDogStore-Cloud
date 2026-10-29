@@ -1,3 +1,5 @@
+import { getLocale } from "@/lib/locale";
+import { t } from "@/lib/i18n";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -10,27 +12,28 @@ import { createFaqAction } from "./actions";
 export const metadata: Metadata = { title: "Administrar preguntas frecuentes" };
 
 async function FaqTable({ token, page }: { token: string; page: number }) {
+  const locale = await getLocale();
   const result = await listFaqs(token, page);
   if (!result.ok) {
     return (
       <p className="error" role="alert">
-        {result.status === 404 ? "Esa página no existe." : result.error.message}{" "}
-        <Link href="/admin/faqs">Volver a la primera página</Link>
+        {result.status === 404 ? t(locale, "faq.missingPage") : result.error.message}{" "}
+        <Link href="/admin/faqs">{t(locale, "faq.firstPage")}</Link>
       </p>
     );
   }
   const { count, next, previous, results } = result.data;
   return (
     <>
-      <p className="muted">{count} preguntas frecuentes en total.</p>
+      <p className="muted">{t(locale, "faq.total", { count })}</p>
       <div className="table-wrap">
         <table className="table" data-testid="faq-table">
           <thead>
             <tr>
-              <th>Categoría</th>
-              <th>Pregunta</th>
-              <th>Estado</th>
-              <th>Acciones</th>
+              <th>{t(locale, "common.category")}</th>
+              <th>{t(locale, "common.question")}</th>
+              <th>{t(locale, "common.status")}</th>
+              <th>{t(locale, "common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -39,7 +42,7 @@ async function FaqTable({ token, page }: { token: string; page: number }) {
                 <td>{faq.category}</td>
                 <td>{faq.question}</td>
                 <td className={faq.is_active ? "ok" : "muted"}>
-                  {faq.is_active ? "Activa" : "Inactiva"}
+                  {t(locale, faq.is_active ? "common.active" : "common.inactive")}
                 </td>
                 <td>
                   <FaqRowActions id={faq.id} question={faq.question} isActive={faq.is_active} />
@@ -50,28 +53,29 @@ async function FaqTable({ token, page }: { token: string; page: number }) {
         </table>
       </div>
       <nav className="links" aria-label="Paginación">
-        {previous && <Link href={`/admin/faqs?page=${page - 1}`}>Anterior</Link>}
-        <span className="muted">Página {page}</span>
-        {next && <Link href={`/admin/faqs?page=${page + 1}`}>Siguiente</Link>}
+        {previous && <Link href={`/admin/faqs?page=${page - 1}`}>{t(locale, "common.previous")}</Link>}
+        <span className="muted">{t(locale, "common.page")} {page}</span>
+        {next && <Link href={`/admin/faqs?page=${page + 1}`}>{t(locale, "common.next")}</Link>}
       </nav>
     </>
   );
 }
 
 async function Admin({ searchParams }: { searchParams: PageProps<"/admin/faqs">["searchParams"] }) {
+  const locale = await getLocale();
   const { page } = await searchParams;
   const pageNumber = Math.max(1, Number.parseInt(String(page ?? "1"), 10) || 1);
   return (
     <RoleGate
       roles={["admin"]}
-      forbiddenMessage="No tienes permiso para administrar las preguntas frecuentes."
+      forbiddenMessage={t(locale, "faq.forbidden")}
       retryHref="/admin/faqs"
     >
       {async (token) => (
         <>
-          <h2>Nueva pregunta frecuente</h2>
-          <FaqForm action={createFaqAction} submitLabel="Crear" />
-          <h2>Preguntas registradas</h2>
+          <h2>{t(locale, "faq.new")}</h2>
+          <FaqForm action={createFaqAction} submitLabel={t(locale, "faq.create")} />
+          <h2>{t(locale, "faq.list")}</h2>
           <FaqTable token={token} page={pageNumber} />
         </>
       )}
@@ -79,14 +83,15 @@ async function Admin({ searchParams }: { searchParams: PageProps<"/admin/faqs">[
   );
 }
 
-export default function AdminFaqsPage({ searchParams }: PageProps<"/admin/faqs">) {
+export default async function AdminFaqsPage({ searchParams }: PageProps<"/admin/faqs">) {
+  const locale = await getLocale();
   return (
     <main className="wide">
-      <h1>Administrar preguntas frecuentes</h1>
+      <h1>{t(locale, "faq.title")}</h1>
       <p className="muted">
-        Las preguntas activas las usa el chatbot para responder. Solo datos ficticios.
+        {t(locale, "faq.intro")}
       </p>
-      <Suspense fallback={<p className="muted">Cargando…</p>}>
+      <Suspense fallback={<p className="muted">{t(locale, "common.loading")}</p>}>
         <Admin searchParams={searchParams} />
       </Suspense>
     </main>

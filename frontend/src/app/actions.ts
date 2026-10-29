@@ -60,7 +60,7 @@ export type ChatReply =
       botMessage: ChatMessage;
       escalated: boolean;
     }
-  | { ok: false; message: string };
+  | { ok: false; code: string; message: string };
 
 type MessageResponse = {
   conversation: { id: number };
@@ -94,5 +94,5 @@ export async function sendMessageAction(
     redirect(loginPath(result.error));
   }
   const fieldError = result.error.fields?.message?.[0];
-  return { ok: false, message: fieldError ?? result.error.message };
+  return { ok: false, code: fieldError ? "validation_error" : result.error.code, message: fieldError ?? result.error.message };
 }

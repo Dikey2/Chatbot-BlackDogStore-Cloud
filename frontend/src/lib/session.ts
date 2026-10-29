@@ -34,7 +34,7 @@ export async function clearToken() {
 export type Session =
   | { state: "authenticated"; user: User; token: string }
   | { state: "anonymous"; expired: boolean }
-  | { state: "unavailable" };
+  | { state: "unavailable"; reason: "timeout" | "unavailable" };
 
 /** Ruta de login; con aviso si la API indicó que la sesión expiró. */
 export function loginPath(error?: ApiError | null) {
@@ -50,6 +50,8 @@ export async function getSession(): Promise<Session> {
   if (!token) return { state: "anonymous", expired: false };
   const result = await api<User>("/api/users/me/", { token });
   if (result.ok) return { state: "authenticated", user: result.data, token };
-  if (result.status !== 401) return { state: "unavailable" };
+  if (result.status !== 401) {
+    return { state: "unavailable", reason: result.error.code === "timeout" ? "timeout" : "unavailable" };
+  }
   return { state: "anonymous", expired: result.error.code === "token_expired" };
 }

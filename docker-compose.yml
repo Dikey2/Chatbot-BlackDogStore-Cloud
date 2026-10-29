@@ -11,6 +11,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?definir en .env}
     volumes:
       - db_data:/var/lib/postgresql/data
+    # Si un proceso termina por error, Docker lo vuelve a iniciar.
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -22,8 +24,10 @@ services:
     environment:
       CHATBOT_SECRET_KEY: ${CHATBOT_SECRET_KEY:?definir en .env}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      CHATBOT_WORKERS: ${CHATBOT_WORKERS:-2}
     ports:
       - "127.0.0.1:8001:8000"
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=2)"]
       interval: 5s
@@ -48,8 +52,20 @@ services:
       THROTTLE_CHAT: ${THROTTLE_CHAT:-30/min}
       TOKEN_TTL_HOURS: ${TOKEN_TTL_HOURS:-8}
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-1}
+      POSTGRES_CONN_MAX_AGE: ${POSTGRES_CONN_MAX_AGE:-60}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      NUM_PROXIES: ${NUM_PROXIES:-}
     ports:
       - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+    # Vivo = responde HTTP, aunque sea 503 porque una dependencia está caída.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u, urllib.error as e\ntry: u.urlopen('http://localhost:8000/api/health/', timeout=3)\nexcept e.HTTPError: pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
@@ -63,8 +79,16 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
       - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/mantenimiento').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   db_data:

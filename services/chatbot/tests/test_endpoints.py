@@ -20,7 +20,7 @@ def test_reply_ok(client):
 
 
 def test_reply_with_empty_faq_list_escalates(client):
-    response = post(client, {"message": "hola", "faqs": []})
+    response = post(client, {"message": "precio de la laptop X", "faqs": []})
     assert response.status_code == 200
     assert response.json()["escalate"] is True
 

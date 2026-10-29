@@ -1,0 +1,99 @@
+== Inicio 2026-10-29 15:08:17
+Datos antes: 2337 usuarios, 10224 conversaciones, 80674 mensajes
+
+== 1. Chatbot detenido
+ Container blackdog-chatbot-chatbot-1 Stopping
+ Container blackdog-chatbot-chatbot-1 Stopped
+  OK    health sin chatbot (esperado 503)
+  OK    health indica chatbot=error
+  OK    enviar mensaje (esperado 503)
+  OK    código chatbot_unavailable
+  OK    sin detalles internos en la respuesta
+  OK    no se guardó nada (esperado 2337 usuarios, 10224 conversaciones, 80674 mensajes)
+ Container blackdog-chatbot-chatbot-1 Starting
+ Container blackdog-chatbot-chatbot-1 Started
+  OK    chat tras reiniciar chatbot (esperado 201)
+
+== 2. Chatbot congelado (tiempo de espera de 3 s)
+ Container blackdog-chatbot-chatbot-1 Paused
+  OK    mensaje con chatbot congelado (esperado 503)
+  tiempo de respuesta: 3.118861s (límite del backend: 3 s)
+ Container blackdog-chatbot-chatbot-1 Unpaused
+
+== 3. PostgreSQL detenido
+ Container blackdog-chatbot-db-1 Stopping
+ Container blackdog-chatbot-db-1 Stopped
+  OK    health sin base (esperado 503)
+  OK    health indica database=error
+  OK    listar FAQ sin base (esperado 500)
+  OK    código server_error genérico
+  OK    sin detalles internos en la respuesta
+  OK    /chat muestra la pantalla de servicio no disponible
+ Container blackdog-chatbot-db-1 Starting
+ Container blackdog-chatbot-db-1 Started
+  OK    FAQ tras volver la base (sin reiniciar el backend) (esperado 200)
+
+== 4. Backend detenido y congelado (vista desde el frontend)
+ Container blackdog-chatbot-backend-1 Stopping
+ Container blackdog-chatbot-backend-1 Stopped
+  OK    backend detenido: pantalla 'Servicio no disponible'
+ Container blackdog-chatbot-chatbot-1 Waiting
+ Container blackdog-chatbot-db-1 Waiting
+ Container blackdog-chatbot-db-1 Healthy
+ Container blackdog-chatbot-chatbot-1 Healthy
+ Container blackdog-chatbot-backend-1 Starting
+ Container blackdog-chatbot-backend-1 Started
+ Container blackdog-chatbot-backend-1 Paused
+  OK    backend congelado: pantalla 'El servidor tardó demasiado' en 8 s
+ Container blackdog-chatbot-backend-1 Unpaused
+
+== 5. Caída del proceso principal del backend (reinicio automático)
+  OK    el proceso terminó y Docker reinició el backend (RestartCount=1)
+  OK    health tras el reinicio (esperado 200)
+
+== 6. Reinicio del backend con carga (Locust, 20 usuarios de lectura, 40 s)
+  reinicio del backend a los 15 s
+ Container blackdog-chatbot-backend-1 Restarting
+ Container blackdog-chatbot-backend-1 Started
+           Aggregated                                                                      2412   123(5.10%) |     28       0    2151      7 |   61.07        3.11
+  Error report
+  # occurrences      Error
+  ------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+  3                  GET /api/faqs/: ConnectionResetError(104, 'Connection reset by peer')
+  2                  GET /api/health/: ConnectionResetError(104, 'Connection reset by peer')
+  2                  GET /api/chat/conversations/ (propias): ConnectionResetError(104, 'Connection reset by peer')
+  2                  GET /api/chat/conversations/latest/: ConnectionResetError(104, 'Connection reset by peer')
+  28                 GET /api/chat/conversations/ (propias): ConnectionRefusedError(111, 'Connection refused')
+  32                 GET /api/faqs/: ConnectionRefusedError(111, 'Connection refused')
+  8                  GET /api/health/: ConnectionRefusedError(111, 'Connection refused')
+  23                 GET /api/chat/conversations/latest/: ConnectionRefusedError(111, 'Connection refused')
+  18                 GET /api/users/me/: ConnectionRefusedError(111, 'Connection refused')
+  1                  GET /api/chat/conversations/latest/: gaierror(-2, 'Name or service not known')
+  1                  GET /api/faqs/: gaierror(-2, 'Name or service not known')
+  2                  GET /api/chat/conversations/ (propias): gaierror(-2, 'Name or service not known')
+  1                  GET /api/health/: gaierror(-2, 'Name or service not known')
+  ------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+== 7. Recarga en caliente de gunicorn (señal HUP) con la misma carga
+  señal HUP a los 15 s (gunicorn renueva sus procesos sin cerrar el puerto)
+ Container blackdog-chatbot-backend-1 Killing
+ Container blackdog-chatbot-backend-1 Killed
+           Aggregated                                                                      2453     0(0.00%) |     25       2    1749      7 |   61.65        0.00
+ Container blackdog-chatbot-chatbot-1 Running
+ Container blackdog-chatbot-db-1 Running
+ Container blackdog-chatbot-backend-1 Recreate
+ Container blackdog-chatbot-backend-1 Recreated
+ Container blackdog-chatbot-db-1 Waiting
+ Container blackdog-chatbot-chatbot-1 Waiting
+ Container blackdog-chatbot-chatbot-1 Healthy
+ Container blackdog-chatbot-db-1 Healthy
+ Container blackdog-chatbot-backend-1 Starting
+ Container blackdog-chatbot-backend-1 Started
+  restaurados rate limits: {'anon': '60/min', 'user': '120/min', 'auth': '10/min', 'chat': '30/min'}
+  OK    health al terminar (esperado 200)
+
+Datos después: 2337 usuarios, 10225 conversaciones, 80676 mensajes
+== Fin 2026-10-29 15:10:57: 0 fallas
+Evidencia: docs/evidencias/resiliencia_20261029-150817.log

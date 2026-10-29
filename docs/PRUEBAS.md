@@ -6,13 +6,16 @@ Resultados obtenidos el 13 de octubre de 2026 en el entorno local de Docker Comp
 
 | Tipo | Herramienta | Resultado |
 |---|---|---|
-| Unitarias e integración de la API | pytest + pytest-django, contra PostgreSQL | 111 de 111 correctas (22 de octubre) |
-| Unitarias del chatbot | pytest | 17 de 17 correctas |
-| API de extremo a extremo | Colección Postman ejecutada con Newman | 37 peticiones, 67 aserciones, 0 fallos (21 de octubre) |
-| Web de extremo a extremo | Playwright (Chromium) | 9 de 9 correctas (21 de octubre) |
+| Unitarias e integración de la API | pytest + pytest-django, contra PostgreSQL | 144 de 144 correctas (29 de octubre) |
+| Unitarias del chatbot | pytest | 36 de 36 correctas (29 de octubre) |
+| API de extremo a extremo | Colección Postman ejecutada con Newman | 45 peticiones, 84 aserciones, 0 fallos (29 de octubre) |
+| Web de extremo a extremo | Playwright (Chromium) | 10 de 10 correctas (29 de octubre) |
 | Estático del frontend | `eslint`, `tsc --noEmit`, `next build` | Sin errores |
-| Carga | Locust 2.46.7 | 100 peticiones totales; 50 y 100 usuarios concurrentes: 0 fallos (22 de octubre) |
+| Carga | Locust 2.46.7 | 100 peticiones totales; 50 y 100 usuarios concurrentes: 0 fallos (22 de octubre); 300 usuarios concurrentes: 0 fallos (29 de octubre) |
 | Rate limit en vivo | `curl` | 429 con `Retry-After` |
+| Carga del 80 % | Locust 2.46.7 | Modalidad A (1000–5000 solicitudes) y B (50–500 usuarios): 0 fallos en los 25 escenarios registrados (sección 10) |
+| Resiliencia | `infra/pruebas/resiliencia.sh` | Chatbot, PostgreSQL y backend caídos o congelados: respuestas controladas (sección 11) |
+| Respaldo y restauración | `infra/backup/*.sh` | Restauración aislada con conteos idénticos (`BACKUPS.md`) |
 
 ## 1. Pytest
 
@@ -120,6 +123,9 @@ Los contadores del rate limit se guardan en PostgreSQL y sobreviven al reinicio.
 | A: 100 peticiones totales, 5 usuarios | 100 | 0 (0 %) | 15,9 | 22 ms | 360 ms | 540 ms | 54 ms |
 | B: 50 usuarios concurrentes, 60 s | 6048 | 0 (0 %) | 101,1 | 100 ms | 560 ms | 2700 ms | 197 ms |
 | C: 100 usuarios concurrentes, 60 s | 3480 | 0 (0 %) | 58,2 | 850 ms | 6200 ms | 8900 ms | 1429 ms |
+| D: 300 usuarios concurrentes, 130 s (29 de octubre) | 6407 | 0 (0 %) | 49,4 | 3500 ms | 8800 ms | 9600 ms | 4361 ms |
+
+El escenario D llega a 300 usuarios de 5 en 5 por segundo (`--users 300 --spawn-rate 5 --run-time 130s`). No hay fallos, pero la mediana sube a 3,5 s: con 300 usuarios el equipo local se satura. Al cerrar, Locust muestra `ValueError: I/O operation on closed file` en su escritor de CSV; es un error interno de Locust al terminar y no afecta las peticiones ni los resultados guardados.
 
 Uso de recursos a mitad de prueba (`docker stats`):
 
@@ -128,7 +134,7 @@ Uso de recursos a mitad de prueba (`docker stats`):
 | B: 50 usuarios | CPU 190 %, RAM 208 MiB | CPU 180 %, RAM 47 MiB | CPU 16 %, RAM 76 MiB |
 | C: 100 usuarios | CPU 196 %, RAM 210 MiB | CPU 186 %, RAM 66 MiB | CPU 13 %, RAM 76 MiB |
 
-Evidencias en `loadtest/resultados/`: `carga.html`, `concurrentes-50u.html` y `concurrentes-100u.html` (gráficos), más sus CSV. Las cifras de la tabla son el resumen final de Locust en consola; los CSV pueden tener unas pocas peticiones menos porque se escriben un instante antes de terminar.
+Evidencias en `loadtest/resultados/`: `carga.html`, `concurrentes-50u.html`, `concurrentes-100u.html` y `concurrentes-300u.html` (gráficos), más sus CSV. Las cifras de la tabla son el resumen final de Locust en consola; los CSV pueden tener unas pocas peticiones menos porque se escriben un instante antes de terminar.
 
 ### Antes: servidor de desarrollo `runserver`
 
@@ -223,5 +229,162 @@ Comprobación en vivo (usuario ficticio `cliente@example.com`; el token se envej
 
 ## 9. Pendiente
 
-- Reducir la latencia con 100 usuarios concurrentes (sección 4).
-- Pruebas de CORS (entrega del 80 %).
+- Prueba de carga contra Render: preparada en `DESPLIEGUE.md`, sección 4. Requiere autorización.
+- Con más de 200 usuarios concurrentes escribiendo, el entorno local se satura (sección 10).
+
+## 10. Entrega del 80 %: pruebas de carga con Locust (29 de octubre de 2026)
+
+### Perfiles y modalidades
+
+| Perfil (clase de `loadtest/locustfile.py`) | Qué hace | ¿Escribe en PostgreSQL? |
+|---|---|---|
+| `Lectura` | Cliente de demostración: health, FAQ, historial propio, última conversación, perfil | No |
+| `LecturaAsesor` | Asesor de demostración: bandeja paginada por estado (solo páginas existentes) | No |
+| `Escritura` | Usuario nuevo y ficticio: registro, login, chat (continúa su conversación), historial, FAQ, health | Sí |
+
+- **Modalidad A, solicitudes totales:** `TOTAL_REQUESTS=1000|2000|3000|5000` detiene la prueba al enviar esa cantidad, con 50 usuarios. Mide cuánto tarda el sistema en atender un volumen fijo.
+- **Modalidad B, usuarios concurrentes:** 50, 100, 200, 300 y 500 usuarios durante 60 s. Si un nivel supera 5 % de fallos o 5 s de mediana, no se ejecutan los niveles superiores de ese perfil.
+
+5000 solicitudes **no equivalen** a 5000 usuarios simultáneos: en la modalidad A, 50 usuarios envían las 5000 solicitudes.
+
+Las cifras de las dos modalidades no se comparan directamente: la A termina al llegar al total de solicitudes y la B mantiene la carga durante 60 s.
+
+```bash
+loadtest/campana.sh                     # A y B completas; restaura los rate limits al terminar
+TOTAL_REQUESTS=1000 loadtest/ejecutar.sh A-1000req-lectura "Lectura LecturaAsesor" 50 10
+python3 loadtest/resumen.py             # resultados/resumen.md y resultados/comparativa.html
+```
+
+`ejecutar.sh` cumple tres funciones:
+
+- Espera a que el backend esté `healthy` y responda 3 veces seguidas.
+- Registra cada ~3 s la CPU y la memoria de `backend`, `db` y `chatbot`, y las conexiones abiertas en PostgreSQL (`pg_stat_activity`).
+- Guarda los resultados con fecha y hora en `loadtest/resultados/AAAAMMDD-HHMMSS_<escenario>*`: HTML, CSV y consola.
+
+Destino: `http://backend:8000`, la red interna de Docker. Nunca Render ni Neon.
+
+| Parámetro | Valor |
+|---|---|
+| Equipo | macOS con Docker Desktop: 8 CPU virtuales y 3,8 GiB para la VM |
+| Backend | gunicorn, 4 procesos `sync`, `CONN_MAX_AGE=60` |
+| Datos al empezar | ~9000 conversaciones y ~23 000 mensajes ficticios |
+
+### Optimización medida (100 usuarios, 60 s, 0 fallos en todos los casos)
+
+| Escenario | Solicitudes | req/s | Mediana | p95 | CPU PostgreSQL (media) |
+|---|---|---|---|---|---|
+| Lectura, **antes** | 3 570 | 59,5 | 1 000 ms | 3 800 ms | 152 % |
+| Lectura, **después** | 12 367 | 207,4 | 48 ms | 510 ms | 88 % |
+| Lectura, después pero con `CONN_MAX_AGE=0` (aislado) | 2 832 | 47,4 | 1 200 ms | 5 300 ms | 134 % |
+| Escritura, **antes** | 4 179 | 69,9 | 770 ms | 3 500 ms | 122 % |
+| Escritura, **después** | 7 530 | 125,6 | 220 ms | 1 100 ms | 51 % |
+
+
+Cambios aplicados entre "antes" y "después":
+
+1. **Reutilizar las conexiones a PostgreSQL** (`CONN_MAX_AGE=60` y `CONN_HEALTH_CHECKS`). Antes, cada petición abría una conexión y PostgreSQL creaba un proceso para atenderla. La prueba aislada, con todos los demás cambios activos y `CONN_MAX_AGE=0`, vuelve a 1200 ms. Este cambio explica casi toda la mejora. En Neon el efecto es mayor, porque cada conexión nueva también negocia SSL.
+2. **Índices compuestos** para la bandeja, el historial y los mensajes (`BASE_DE_DATOS.md`). Con 9000 conversaciones, `EXPLAIN ANALYZE` baja de 2,18 a 1,08 ms. El efecto se nota más cuando crecen los datos.
+3. **Chatbot con gunicorn** en lugar de `runserver`, como ya tenía el backend.
+4. **Detalle de conversación con `prefetch_related`**: una sola consulta para todos los mensajes, verificada con pytest.
+
+### Modalidad A: solicitudes totales (50 usuarios)
+
+| Escenario | Solicitudes | Fallidas | req/s | Media | Mediana | p95 | p99 |
+|---|---|---|---|---|---|---|---|
+| 1000, lectura | 1 000 | 0 | 94,4 | 165 ms | 30 ms | 1 100 ms | 1 300 ms |
+| 1000, escritura | 1 000 | 0 | 60,1 | 468 ms | 70 ms | 2 800 ms | 3 600 ms |
+| 2000, lectura | 1 999 | 0 | 105,6 | 139 ms | 34 ms | 590 ms | 1 600 ms |
+| 2000, escritura | 2 000 | 0 | 87,2 | 238 ms | 31 ms | 2 000 ms | 2 800 ms |
+| 3000, lectura | 3 000 | 0 | 131,7 | 59 ms | 15 ms | 380 ms | 830 ms |
+| 3000, escritura | 2 999 | 0 | 99,8 | 178 ms | 28 ms | 1 100 ms | 3 300 ms |
+| 5000, lectura | 4 999 | 0 | 137,4 | 50 ms | 19 ms | 180 ms | 740 ms |
+| 5000, escritura | 5 000 | 0 | 113,2 | 117 ms | 25 ms | 410 ms | 2 500 ms |
+
+En algunos escenarios la cifra queda una solicitud por debajo del total. La petición restante es la que se reservó cuando Locust ya estaba deteniendo la prueba.
+
+Los percentiles altos de las pruebas cortas vienen del arranque. En escritura, el registro y el login calculan el hash PBKDF2, que es intencionalmente costoso. Con más solicitudes, ese costo inicial pesa menos en el total.
+
+### Modalidad B: usuarios concurrentes (60 s)
+
+| Usuarios | Perfil | Solicitudes | Fallidas | req/s | Mediana | p95 | p99 | CPU backend (media / máx.) |
+|---|---|---|---|---|---|---|---|---|
+| 50 | Lectura | 8 726 | 0 | 146,6 | 9 ms | 37 ms | 310 ms | 101 % / 261 % |
+| 100 | Lectura | 11 332 | 0 | 189,7 | 67 ms | 940 ms | 2 000 ms | 232 % / 388 % |
+| 200 | Lectura | 11 418 | 0 | 191,0 | 450 ms | 1 300 ms | 7 400 ms | 253 % / 433 % |
+| 300 | Lectura | 9 125 | 0 | 153,2 | 720 ms | 7 900 ms | 19 000 ms | 291 % / 451 % |
+| 500 | Lectura | 5 365 | 0 | 89,2 | 1 300 ms | 28 000 ms | 34 000 ms | 350 % / 406 % |
+| 50 | Escritura | 8 108 | 0 | 135,6 | 12 ms | 170 ms | 760 ms | 143 % / 373 % |
+| 100 | Escritura | 9 583 | 0 | 160,3 | 120 ms | 620 ms | 4 900 ms | 261 % / 414 % |
+| 200 | Escritura | 4 904 | 0 | 82,0 | 710 ms | 12 000 ms | 15 000 ms | 328 % / 429 % |
+| 300 | Escritura | 2 369 | 0 | 39,6 | 1 100 ms | 23 000 ms | 25 000 ms | 357 % / 429 % |
+| 500 | Escritura | 649 | 0 | 10,8 | 26 000 ms | 46 000 ms | 46 000 ms | 401 % / 466 % |
+
+La escritura con 500 usuarios superó los 5 s de mediana y detuvo el escalamiento. No se probaron cargas mayores: el equipo local ya está saturado.
+
+Todas las cifras, incluidas memoria y conexiones, están en `loadtest/resultados/resumen.md`. Los gráficos están en `loadtest/resultados/comparativa.html`.
+
+### Cuellos de botella
+
+1. **CPU del backend con 4 procesos `sync`.** Con 200 usuarios o más, la CPU del backend se acerca al 400 % (4 procesos, uno por núcleo). La de PostgreSQL baja, porque recibe menos trabajo. Las peticiones esperan turno en gunicorn.
+2. **Hash de contraseñas.** Cada registro y cada login calcula PBKDF2-SHA256 con 1 000 000 de iteraciones (valor de Django 5.2). Con 500 usuarios nuevos en 10 s, eso son 1000 hashes y la escritura se satura. No se baja el costo, porque protege las contraseñas.
+3. **Conexiones a PostgreSQL:** como máximo 6 de las 100 permitidas. No hay presión por conexiones.
+
+### Extra: usar más núcleos del equipo (`GUNICORN_WORKERS`)
+
+Mismos escenarios, con 8 procesos (las 8 CPU de la VM) en lugar de 4. 0 fallos en todos los casos.
+
+| Escenario | Procesos | req/s | Mediana | p95 | RAM backend máx. |
+|---|---|---|---|---|---|
+| Lectura, 300 usuarios | 4 | 153,2 | 720 ms | 7 900 ms | 231 MiB |
+| Lectura, 300 usuarios | **8** | **213,3** | 710 ms | **2 600 ms** | 399 MiB |
+| Escritura, 200 usuarios | 4 | 82,0 | 710 ms | 12 000 ms | 231 MiB |
+| Escritura, 200 usuarios | **8** | **151,7** | **380 ms** | **5 700 ms** | 412 MiB |
+
+Recomendación:
+
+- **En un equipo local:** `GUNICORN_WORKERS` igual al número de núcleos.
+- **En Render Free (512 MB):** 1 proceso, porque la memoria es el límite.
+
+El valor por defecto sigue en 4 y se cambia con la variable.
+
+### Incidencias de la campaña
+
+| Problema | Causa | Evidencia | Solución | Resultado de la nueva prueba |
+|---|---|---|---|---|
+| 596 respuestas 404 en la bandeja del asesor | La prueba pedía páginas 1 a 5 de estados que tenían menos | Primera ejecución de la línea base, descartada | El perfil consulta `count` y solo pide páginas existentes | 0 errores |
+| 20 a 60 `ConnectionRefusedError` al iniciar | `docker compose run locust` recreaba el backend por su `depends_on`, y las peticiones llegaban antes de que gunicorn escuchara | Hora del fallo igual a la de `Listening at` en los logs | `--no-deps` y espera a `healthy` más 3 respuestas seguidas | 0 errores; la prueba aislada sí usa la configuración pedida |
+| Dos pruebas duraron 120 y 163 s en lugar de 60 s | La Mac entró en reposo: hay saltos de 58 y 105 s sin datos en el historial | `*_stats_history.csv` (descartados en `resultados/descartados/`) | Se repitieron con `caffeinate -i` | 59 s y saltos de 2 s como máximo |
+| Procesos de gunicorn reciclados cada ~50 s con carga | `--max-requests 2000` era bajo para ~40 req/s por proceso | Logs `Worker exiting` / `Booting worker` | `--max-requests 10000` con `jitter 1000` | Reciclaje cada varios minutos, sin fallos |
+| `ValueError: I/O operation on closed file` al terminar | Error interno de Locust al cerrar su CSV | Consola de Locust | Ninguna: no afecta a las peticiones ni a los resultados | — |
+
+## 11. Entrega del 80 %: resiliencia (29 de octubre de 2026)
+
+`infra/pruebas/resiliencia.sh` solo actúa sobre Docker Compose local:
+
+- Para, pausa y reinicia contenedores.
+- Nunca borra volúmenes.
+- Al terminar deja todo en marcha.
+
+Antes y después cuenta las filas de la base: no se perdieron datos (los conteos solo suben por los mensajes de la prueba).
+
+Evidencia: `docs/evidencias/resiliencia_20261029-150817.log`.
+
+| Caso | Resultado esperado | Obtenido |
+|---|---|---|
+| Chatbot detenido | `/api/health/` 503 con `chatbot=error`; el chat responde 503 `chatbot_unavailable` sin guardar nada | Correcto; conteos iguales antes y después |
+| Chatbot congelado (`docker pause`) | El backend corta a los 3 s y responde 503 | 503 en 3,05 s |
+| PostgreSQL detenido | Health 503 `database=error`; las rutas responden 500 `server_error` genérico, sin detalles internos; `/chat` muestra "Servicio no disponible" | Correcto |
+| PostgreSQL vuelve | El backend se recupera solo, sin reiniciarlo (`CONN_HEALTH_CHECKS`) | 200 |
+| Backend detenido | El frontend muestra "Servicio no disponible" con "Reintentar" | Correcto |
+| Backend congelado | El frontend corta a los 8 s y muestra "El servidor tardó demasiado" | Correcto, en 8 s |
+| Termina el proceso principal del backend | `restart: unless-stopped` lo reinicia | `RestartCount=1`, health 200 |
+| `docker compose restart backend` con 20 usuarios | Se espera un corte breve | 5,1 % de fallos en esta ejecución (11,6 % en la primera): conexión rechazada o reiniciada durante unos segundos |
+| Recarga en caliente (`docker compose kill -s HUP backend`) con la misma carga | Sin corte | **0 fallos** en 2453 solicitudes |
+
+### Incidencias
+
+| Problema | Causa | Evidencia | Solución | Resultado de la nueva prueba |
+|---|---|---|---|---|
+| El caso "reinicio automático" daba OK sin reiniciar | La imagen no trae el binario `kill`; el comando fallaba en silencio | `exec: "kill": executable file not found` | `sh -c 'kill 1'` y exigir que cambie `StartedAt` | Reinicio real (`RestartCount=1`) |
+| El reinicio completo corta el servicio | Con una sola instancia, el puerto se cierra mientras gunicorn arranca | Paso 6 del log | Para renovar procesos o configuración, usar `HUP`; un cambio de imagen necesita reinicio. El frontend muestra la pantalla de servicio no disponible con "Reintentar" | `HUP`: 0 fallos |
+| El selector de idioma volvía al inicio y no cambiaba el idioma en Docker | La redirección usaba la dirección interna del servidor (`0.0.0.0:3000`), no la del navegador | Prueba Playwright del selector | `Location` relativa y comparación del `Referer` con el `Host` | Playwright 10/10 |

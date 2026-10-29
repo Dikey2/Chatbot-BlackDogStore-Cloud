@@ -1485,6 +1485,312 @@
       ]
     },
     {
+      "name": "4c. Seguridad, auditoría y paginación",
+      "item": [
+        {
+          "name": "Auditoría como administrador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('paginado', () => pm.expect(body).to.have.keys('count', 'next', 'previous', 'results'));",
+                  "pm.test('sin contraseñas ni tokens', () => pm.expect(JSON.stringify(body)).to.not.match(/password|token\"\\s*:/i));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/audit/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Auditoría como cliente (prohibido)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('error.code = permission_denied', () => pm.expect(pm.response.json().error.code).to.eql('permission_denied'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/audit/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Auditoría con filtro desconocido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/audit/?action=inventada",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "inventada"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Auditoría no se puede borrar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 405', () => pm.response.to.have.status(405));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/audit/1/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "audit",
+                "1",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "page_size limitado a 100",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('como máximo 100 resultados', () => pm.expect(pm.response.json().results.length).to.be.at.most(100));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/faqs/?page_size=1000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "faqs",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "page_size",
+                  "value": "1000"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Estado de conversación desconocido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('error.code = validation_error', () => pm.expect(pm.response.json().error.code).to.eql('validation_error'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chat/conversations/?status=inventado",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "chat",
+                "conversations",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "inventado"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "CORS: origen no permitido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('error.code = origin_not_allowed', () => pm.expect(pm.response.json().error.code).to.eql('origin_not_allowed'));",
+                  "pm.test('sin Access-Control-Allow-Origin', () => pm.expect(pm.response.headers.has('Access-Control-Allow-Origin')).to.be.false);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "https://evil.example.com"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/faqs/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "faqs",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "CORS: preflight de origen permitido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', () => pm.response.to.have.status(204));",
+                  "pm.test('origen devuelto', () => pm.expect(pm.response.headers.get('Access-Control-Allow-Origin')).to.eql('http://localhost:3000'));",
+                  "pm.test('cabeceras permitidas', () => pm.expect(pm.response.headers.get('Access-Control-Allow-Headers')).to.eql('Authorization, Content-Type'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "OPTIONS",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "http://localhost:3000"
+              },
+              {
+                "key": "Access-Control-Request-Method",
+                "value": "POST"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/faqs/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "faqs",
+                ""
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "5. Limpieza y cierre",
       "item": [
         {

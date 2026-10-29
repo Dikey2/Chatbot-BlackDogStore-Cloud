@@ -20,6 +20,11 @@ const UNAVAILABLE: ApiError = {
   message: "El servicio no está disponible. Inténtalo más tarde.",
 };
 
+const TIMEOUT: ApiError = {
+  code: "timeout",
+  message: "El servidor tardó demasiado en responder.",
+};
+
 export async function api<T>(
   path: string,
   options: { method?: string; body?: unknown; token?: string } = {},
@@ -41,7 +46,11 @@ export async function api<T>(
     const data = response.status === 204 ? null : await response.json();
     if (response.ok) return { ok: true, status: response.status, data: data as T };
     return { ok: false, status: response.status, error: data?.error ?? UNAVAILABLE };
-  } catch {
+  } catch (error) {
+    // AbortSignal.timeout lanza TimeoutError: se distingue de una API caída.
+    if (error instanceof Error && error.name === "TimeoutError") {
+      return { ok: false, status: 504, error: TIMEOUT };
+    }
     return { ok: false, status: 503, error: UNAVAILABLE };
   }
 }

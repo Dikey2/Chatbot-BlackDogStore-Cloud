@@ -1,11 +1,12 @@
 %% Diagrama entidad-relación. Fuente editable (Mermaid).
-%% Editar aquí o pegar en https://mermaid.live. Se muestra en docs/BASE_DE_DATOS.md.
-%% Las entidades marcadas PLANIFICADA aún no existen en la base de datos.
+%% Editar aquí o pegar en https://mermaid.live. Se muestra en docs/BASE_DE_DATOS.md
+%% y se exporta a docs/diagrama-er.svg (ver BASE_DE_DATOS.md).
+%% ARCHIVO está PLANIFICADA (RF-10): todavía no existe en la base de datos.
 erDiagram
     USERS_USER ||--o{ CHAT_CONVERSATION : "inicia"
     USERS_USER ||--o| AUTHTOKEN_TOKEN : "tiene sesión"
     CHAT_CONVERSATION ||--o{ CHAT_MESSAGE : "contiene"
-    USERS_USER ||--o{ EVENTO_AUDITORIA : "genera (PLANIFICADA)"
+    USERS_USER |o--o{ AUDIT_AUDITEVENT : "genera"
     CHAT_CONVERSATION ||--o{ ARCHIVO : "adjunta (PLANIFICADA)"
 
     USERS_USER {
@@ -22,8 +23,8 @@ erDiagram
     }
     AUTHTOKEN_TOKEN {
         varchar key PK "token de sesión"
-        bigint user_id FK,UK
-        timestamptz created
+        bigint user_id FK,UK "ON DELETE CASCADE"
+        timestamptz created "caduca a las TOKEN_TTL_HOURS"
     }
     FAQS_FAQ {
         bigint id PK
@@ -37,28 +38,31 @@ erDiagram
     }
     CHAT_CONVERSATION {
         bigint id PK
-        bigint user_id FK
+        bigint user_id FK "ON DELETE CASCADE"
         varchar status "abierta | derivada | cerrada"
         timestamptz created_at
     }
     CHAT_MESSAGE {
         bigint id PK
-        bigint conversation_id FK
+        bigint conversation_id FK "ON DELETE CASCADE"
         varchar sender "cliente | bot | asesor"
         text content
         timestamptz created_at
     }
-    EVENTO_AUDITORIA {
+    AUDIT_AUDITEVENT {
         bigint id PK
-        bigint user_id FK "PLANIFICADA, RF-12"
-        varchar accion
-        varchar resultado
-        timestamptz fecha
+        bigint user_id FK "nullable, ON DELETE SET NULL"
+        varchar email "copia del correo"
+        varchar action "login, logout, faq_crear, ..."
+        varchar result "exito | fallo"
+        varchar source "IP del cliente"
+        varchar detail "sin contraseñas ni tokens"
+        timestamptz created_at
     }
     ARCHIVO {
         bigint id PK
         bigint conversation_id FK "PLANIFICADA, RF-10"
-        varchar clave_s3
+        varchar clave
         varchar nombre
         varchar tipo
         timestamptz creado_en

@@ -18,6 +18,12 @@ class Conversation(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+        indexes = [
+            # Bandeja del asesor: WHERE status = ... ORDER BY created_at DESC.
+            models.Index(fields=["status", "-created_at", "-id"], name="conv_estado_fecha_idx"),
+            # Historial propio y "latest": WHERE user_id = ... ORDER BY created_at DESC.
+            models.Index(fields=["user", "-created_at", "-id"], name="conv_usuario_fecha_idx"),
+        ]
 
 
 class Message(models.Model):
@@ -35,3 +41,7 @@ class Message(models.Model):
 
     class Meta:
         ordering = ["created_at", "id"]
+        indexes = [
+            # Mensajes de una conversación en orden cronológico.
+            models.Index(fields=["conversation", "created_at", "id"], name="msg_conv_fecha_idx"),
+        ]

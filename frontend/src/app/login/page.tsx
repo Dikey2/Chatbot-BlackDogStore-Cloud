@@ -1,3 +1,5 @@
+import { getLocale } from "@/lib/locale";
+import { t } from "@/lib/i18n";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -8,36 +10,38 @@ export const metadata: Metadata = { title: "Iniciar sesión" };
 
 async function ExpiredNotice({ searchParams }: { searchParams: PageProps<"/login">["searchParams"] }) {
   const { motivo } = await searchParams;
+  const locale = await getLocale();
   if (motivo !== "expirada") return null;
   return (
     <p className="error" role="status" data-testid="session-expired">
-      Tu sesión expiró. Inicia sesión de nuevo.
+      {t(locale, "login.expired")}
     </p>
   );
 }
 
-export default function LoginPage({ searchParams }: PageProps<"/login">) {
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  const locale = await getLocale();
   return (
     <main>
-      <h1>Iniciar sesión</h1>
+      <h1>{t(locale, "login.title")}</h1>
       <Suspense>
         <ExpiredNotice searchParams={searchParams} />
       </Suspense>
       <AuthForm
         action={loginAction}
-        submitLabel="Entrar"
+        submitLabel={t(locale, "login.submit")}
         fields={[
-          { name: "email", label: "Correo", type: "email", autoComplete: "email" },
+          { name: "email", label: t(locale, "common.email"), type: "email", autoComplete: "email" },
           {
             name: "password",
-            label: "Contraseña",
+            label: t(locale, "common.password"),
             type: "password",
             autoComplete: "current-password",
           },
         ]}
       />
       <p>
-        ¿No tienes cuenta? <Link href="/registro">Regístrate</Link>
+        {t(locale, "login.noAccount")} <Link href="/registro">{t(locale, "login.register")}</Link>
       </p>
     </main>
   );

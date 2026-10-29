@@ -18,3 +18,10 @@ class IsAdminOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return request.user.is_authenticated and request.user.role == "admin"
+
+
+class IsAdminRole(BasePermission):
+    """Solo el rol administrador (supervisión, RF-12)."""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == "admin"

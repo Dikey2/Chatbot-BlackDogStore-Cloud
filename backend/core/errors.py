@@ -30,6 +30,8 @@ def exception_handler(exc, context):
     else:
         detail = response.data.get("detail", "") if isinstance(response.data, dict) else ""
         code = getattr(detail, "code", None) or getattr(exc, "default_code", "error")
+        if response.status_code == 403 and isinstance(exc, exceptions.PermissionDenied):
+            _audit_denied(context.get("request"))
         if response.status_code == 404:
             # El texto por defecto de Django nombra el modelo interno.
             detail = "Recurso no encontrado."
@@ -39,3 +41,18 @@ def exception_handler(exc, context):
 
 def api_not_found(request, *args, **kwargs):
     return JsonResponse(_body("not_found", "Ruta no encontrada."), status=404)
+
+
+def _audit_denied(request):
+    """Intento de acceso a un recurso sin permiso (por ejemplo, URL escrita a mano)."""
+    if request is None or not request.user.is_authenticated:
+        return
+    from audit.models import AuditEvent
+    from audit.services import record
+
+    record(
+        request,
+        AuditEvent.Action.ACCESO_DENEGADO,
+        AuditEvent.Result.FALLO,
+        detail=f"{request.method} {request.path}",
+    )

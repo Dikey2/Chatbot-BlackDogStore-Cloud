@@ -19,8 +19,10 @@ services:
       - ./loadtest:/mnt/locust
     environment:
       TOTAL_REQUESTS: ${TOTAL_REQUESTS:-100}
+      # Contraseña de las cuentas de demostración para los perfiles de lectura.
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
     command: >
-      -f locustfile.py --headless
+      -f locustfile.py --headless Escritura
       --users ${LOAD_USERS:-5} --spawn-rate ${LOAD_USERS:-5}
       --host http://backend:8000
       --csv resultados/carga --html resultados/carga.html --only-summary

@@ -176,3 +176,19 @@ def test_superuser_gets_admin_role(db):
         email="Root@Example.com", password=PASSWORD, name="Root"
     )
     assert (user.email, user.role, user.is_staff) == ("root@example.com", "admin", True)
+
+
+def test_login_trims_spaces_and_ignores_case(api, cliente):
+    response = api.post(
+        "/api/auth/login/",
+        {"email": f"  {cliente.email.upper()}  ", "password": PASSWORD},
+        format="json",
+    )
+    assert response.status_code == 200
+
+
+def test_revoked_token_cannot_be_reused(cliente_api):
+    assert cliente_api.post("/api/auth/logout/").status_code == 204
+    response = cliente_api.get("/api/users/me/")
+    assert response.status_code == 401
+    assert cliente_api.get("/api/chat/conversations/").status_code == 401

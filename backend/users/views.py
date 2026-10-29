@@ -7,6 +7,9 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from audit.models import AuditEvent
+from audit.services import record
+
 from .authentication import is_expired, token_ttl
 from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
 
@@ -21,6 +24,7 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        record(request, AuditEvent.Action.REGISTRO, user=user)
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
@@ -39,6 +43,12 @@ class LoginView(APIView):
             password=serializer.validated_data["password"],
         )
         if user is None:
+            record(
+                request,
+                AuditEvent.Action.LOGIN_FALLIDO,
+                AuditEvent.Result.FALLO,
+                email=serializer.validated_data["email"].lower(),
+            )
             # Mismo mensaje para correo inexistente y contraseña errónea.
             raise AuthenticationFailed("Correo o contraseña incorrectos.")
         token, _ = Token.objects.get_or_create(user=user)
@@ -47,6 +57,7 @@ class LoginView(APIView):
             token.delete()
             token = Token.objects.create(user=user)
         expires_at = token.created + token_ttl()
+        record(request, AuditEvent.Action.LOGIN, user=user)
         return Response(
             {
                 "token": token.key,
@@ -62,6 +73,7 @@ class LoginView(APIView):
 
 class LogoutView(APIView):
     def post(self, request):
+        record(request, AuditEvent.Action.LOGOUT)
         request.auth.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

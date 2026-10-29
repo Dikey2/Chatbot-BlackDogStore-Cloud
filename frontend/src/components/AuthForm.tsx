@@ -1,4 +1,7 @@
 "use client";
+import { useLocale } from "@/components/LocaleProvider";
+import { t } from "@/lib/i18n";
+
 
 import { useActionState } from "react";
 import type { FormState } from "@/app/actions";
@@ -19,6 +22,7 @@ export function AuthForm({
   fields: Field[];
   submitLabel: string;
 }) {
+  const locale = useLocale();
   const [state, formAction, pending] = useActionState(action, {});
   // Errores que la API no asocia a un campo visible (por ejemplo, contraseña débil).
   const general = Object.entries(state.fields ?? {})
@@ -55,7 +59,7 @@ export function AuthForm({
         </p>
       ))}
       <button type="submit" disabled={pending}>
-        {pending ? "Enviando…" : submitLabel}
+        {pending ? t(locale, "common.sending") : submitLabel}
       </button>
     </form>
   );

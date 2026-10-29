@@ -1,0 +1,11 @@
+local_20261029-151108.dump: OK
+Restaurado en restore_20261029_151110.
+Filas restauradas:
+  audit_auditevent 5458
+  chat_conversation 10225
+  chat_message 80676
+  django_migrations 29
+  faqs_faq 5
+  users_user 2337
+Resultado: coincide con la base de origen.
+Base temporal restore_20261029_151110 eliminada.

@@ -46,6 +46,8 @@ El backend aplica las migraciones al iniciar.
 5. Cerrar sesión. `/chat` vuelve a pedir login.
 6. Entrar como `asesor@example.com` y abrir "Bandeja del asesor" (`/asesor`): ver la consulta derivada del paso 4, responderla y cerrarla. Al recargar `/chat`, el cliente ve la respuesta.
 7. Entrar como `admin@example.com` y abrir "Administrar FAQ" (`/admin/faqs`): crear, editar, desactivar o eliminar preguntas. El chatbot usa los cambios en la siguiente consulta.
+8. Como administrador, abrir "Auditoría de accesos" (`/admin/auditoria`): aparecen los inicios de sesión, intentos fallidos, accesos denegados y cambios de FAQ, con filtros por acción y resultado.
+9. Cambiar el idioma con los botones ES / EN de la parte superior.
 
 ## Comandos
 
@@ -66,7 +68,15 @@ docker compose run --rm -v "$PWD/backend:/app" backend python manage.py makemigr
 docker compose exec db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB'
 ```
 
-Newman (colección Postman) y Locust (carga): ver [docs/PRUEBAS.md](docs/PRUEBAS.md).
+```bash
+loadtest/campana.sh                                      # carga con Locust (1000–5000 y 50–500 usuarios), solo local
+python3 loadtest/resumen.py                              # tabla y gráficos de los resultados
+infra/pruebas/resiliencia.sh                             # caídas controladas de chatbot, base y backend (local)
+infra/backup/respaldar.sh                                # respaldo con fecha, SHA-256 y retención
+infra/backup/restaurar-prueba.sh backups/<archivo>.dump  # restauración en una base temporal aislada
+```
+
+Newman (colección Postman), Locust y resiliencia: ver [docs/PRUEBAS.md](docs/PRUEBAS.md). Respaldos: [docs/BACKUPS.md](docs/BACKUPS.md). Despliegue en Render y Neon: [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md).
 
 Después de cambiar código hay que reconstruir: `docker compose up -d --build`.
 
@@ -80,5 +90,8 @@ Después de cambiar código hay que reconstruir: `docker compose up -d --build`.
 - Las contraseñas se guardan con hash PBKDF2-SHA256.
 - El token de sesión se guarda en una cookie `httpOnly`; el navegador nunca llama a la API.
 - Rate limits en registro, login, chat y resto de la API.
+- CORS con lista explícita (`CORS_ALLOWED_ORIGINS`); un origen no autorizado recibe 403.
+- Auditoría de accesos y operaciones, sin contraseñas ni tokens.
+- En producción, `DJANGO_HTTPS=true` activa cookies seguras, HSTS y redirección a HTTPS.
 - El backend corre con gunicorn (4 procesos). `DEBUG=true` en `.env` es solo para el entorno local; antes de publicar hay que ponerlo en `false` y revisar `ALLOWED_HOSTS`.
 - No se ha creado ningún recurso en AWS.

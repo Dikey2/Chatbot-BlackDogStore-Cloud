@@ -9,6 +9,7 @@ urlpatterns = [
     path("api/", include("users.urls")),
     path("api/", include("faqs.urls")),
     path("api/", include("chat.urls")),
+    path("api/", include("audit.urls")),
     # Cualquier otra ruta bajo /api/ responde 404 en JSON, también con DEBUG activo.
     re_path(r"^api/", api_not_found),
 ]

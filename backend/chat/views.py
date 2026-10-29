@@ -1,12 +1,14 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from rest_framework import status, viewsets
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
+from audit.models import AuditEvent
+from audit.services import record
 from core.permissions import STAFF_ROLES, IsStaffRole
 from faqs.models import FAQ
 
@@ -88,11 +90,20 @@ class SendMessageView(APIView):
 
 
 class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
+    # ?ordering=created_at | -created_at (por defecto, más recientes primero).
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ["created_at", "id"]
+
     def get_queryset(self):
         queryset = conversations_for(self.request.user)
         status_filter = self.request.query_params.get("status")
         if status_filter:
+            if status_filter not in Conversation.Status.values:
+                raise ValidationError({"status": ["Estado desconocido."]})
             queryset = queryset.filter(status=status_filter)
+        if self.action == "retrieve":
+            # Una sola consulta extra para todos los mensajes (sin N+1).
+            queryset = queryset.prefetch_related("messages")
         return queryset
 
     def get_serializer_class(self):
@@ -131,6 +142,11 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
             sender=Message.Sender.ASESOR,
             content=serializer.validated_data["message"],
         )
+        record(
+            request,
+            AuditEvent.Action.CONVERSACION_RESPONDER,
+            detail=f"Conversación {conversation.id}",
+        )
         return Response(MessageSerializer(message).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"], permission_classes=[IsStaffRole])
@@ -141,4 +157,9 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
             raise ConversationClosed()
         conversation.status = Conversation.Status.CERRADA
         conversation.save(update_fields=["status"])
+        record(
+            request,
+            AuditEvent.Action.CONVERSACION_CERRAR,
+            detail=f"Conversación {conversation.id}",
+        )
         return Response(ConversationSerializer(conversation).data)

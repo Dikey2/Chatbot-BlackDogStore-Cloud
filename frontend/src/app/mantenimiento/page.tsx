@@ -1,16 +1,19 @@
+import { getLocale } from "@/lib/locale";
+import { t } from "@/lib/i18n";
 import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = { title: "En mantenimiento" };
 
-export default function Mantenimiento() {
+export default async function Mantenimiento() {
+  const locale = await getLocale();
   return (
     <main>
-      <h1>Sitio en mantenimiento</h1>
+      <h1>{t(locale, "maintenance.title")}</h1>
       <p className="muted">
-        Estamos realizando trabajos en el servicio. Vuelve a intentarlo en unos minutos.
+        {t(locale, "maintenance.message")}
       </p>
-      <Link href="/">Volver al inicio</Link>
+      <Link href="/">{t(locale, "common.backHome")}</Link>
     </main>
   );
 }

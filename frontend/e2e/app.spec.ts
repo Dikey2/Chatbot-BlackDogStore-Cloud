@@ -38,6 +38,18 @@ test.describe("páginas públicas", () => {
     await expect(page).toHaveURL(/\/login$/);
     await page.goto("/admin/faqs");
     await expect(page).toHaveURL(/\/login$/);
+    await page.goto("/admin/auditoria");
+    await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test("el selector de idioma cambia la interfaz y se mantiene al recargar", async ({ page }) => {
+    await page.goto("/mantenimiento");
+    await page.getByRole("button", { name: "EN" }).click();
+    await expect(page.getByRole("heading", { name: "Site under maintenance" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Site under maintenance" })).toBeVisible();
+    await page.getByRole("button", { name: "ES" }).click();
+    await expect(page.getByRole("heading", { name: "Sitio en mantenimiento" })).toBeVisible();
   });
 });
 
@@ -118,6 +130,16 @@ test.describe.serial("registro, chat, historial y sesión", () => {
     } finally {
       await reopened.close();
     }
+
+    // Un cliente que escribe a mano rutas de administración ve "acceso restringido",
+    // también después de recargar: lo decide el servidor en cada petición.
+    for (const path of ["/admin/auditoria", "/admin/faqs", "/asesor"]) {
+      await page.goto(path);
+      await expect(visible(page.getByTestId("role-forbidden"))).toBeVisible();
+    }
+    await page.reload();
+    await expect(visible(page.getByTestId("role-forbidden"))).toBeVisible();
+    await page.goto("/chat");
 
     await page.getByRole("button", { name: "Cerrar sesión" }).click();
     await expect(page).toHaveURL(/\/$/);
@@ -347,5 +369,21 @@ test.describe("administración de preguntas frecuentes", () => {
     // Editar una FAQ inexistente muestra la página 404.
     await page.goto("/admin/faqs/999999");
     await expect(page.getByRole("heading", { name: "404: página no encontrada" })).toBeVisible();
+
+    // Supervisión (misma sesión: no suma inicios de sesión al límite de 10 por minuto).
+    await page.goto("/admin/auditoria");
+    const table = visible(page.getByTestId("audit-table"));
+    await expect(table).toBeVisible();
+    // El evento más reciente es la eliminación de la FAQ de esta prueba.
+    await expect(table.locator("tbody tr").first()).toHaveAttribute("data-action", "faq_eliminar");
+    await expect(table.locator("tbody tr").first()).toContainText("admin@example.com");
+
+    await visible(page.getByLabel("Acción")).selectOption("faq_crear");
+    await visible(page.getByRole("button", { name: "Filtrar" })).click();
+    await expect(page).toHaveURL(/accion=faq_crear/);
+    const rows = visible(page.getByTestId("audit-table")).locator("tbody tr");
+    await expect(rows.first()).toHaveAttribute("data-action", "faq_crear");
+    const actions = await rows.evaluateAll((all) => all.map((r) => r.getAttribute("data-action")));
+    expect(new Set(actions)).toEqual(new Set(["faq_crear"]));
   });
 });

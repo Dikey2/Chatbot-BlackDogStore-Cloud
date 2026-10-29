@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "core",
     "faqs",
     "chat",
+    "audit",
 ]
 
 
@@ -62,6 +63,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # CORS con lista explícita de orígenes (core/middleware.py).
+    "core.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -111,15 +114,16 @@ DATABASES = {
 
         "PASSWORD": os.environ["POSTGRES_PASSWORD"],
 
-        "HOST": os.environ.get(
-            "POSTGRES_HOST", "db"
-        ),
+        # "or": una variable definida pero vacía usa el valor por defecto.
+        "HOST": os.environ.get("POSTGRES_HOST") or "db",
 
-        "PORT": os.environ.get(
-            "POSTGRES_PORT", "5432"
-        ),
+        "PORT": os.environ.get("POSTGRES_PORT") or "5432",
 
-        "CONN_MAX_AGE": 0,
+        # Reutiliza la conexión entre peticiones del mismo proceso: abrir una
+        # conexión nueva (y con SSL hacia Neon) en cada petición es costoso.
+        "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE") or "60"),
+        # Descarta una conexión reutilizada que se haya cortado.
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 
@@ -219,11 +223,18 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated"
     ],
 
+    # 20 por página; ?page_size= hasta 100 (core/pagination.py).
     "DEFAULT_PAGINATION_CLASS": (
-        "rest_framework.pagination.PageNumberPagination"
+        "core.pagination.StandardPagination"
     ),
 
     "PAGE_SIZE": 20,
+
+    # Proxies de confianza delante de la API (Render = 1). Sin definir, DRF usa
+    # la cabecera X-Forwarded-For completa, que un cliente puede alterar.
+    "NUM_PROXIES": (
+        int(os.environ["NUM_PROXIES"]) if os.environ.get("NUM_PROXIES") else None
+    ),
 
     "EXCEPTION_HANDLER": (
         "core.errors.exception_handler"
@@ -280,6 +291,38 @@ CHATBOT_SERVICE_URL = os.environ.get(
     "CHATBOT_SERVICE_URL",
     "http://chatbot:8000"
 )
+
+
+# ==========================================================
+# HTTPS EN PRODUCCIÓN
+# ==========================================================
+
+# DJANGO_HTTPS=true detrás de un proxy con HTTPS (Render). En local queda en false.
+if os.environ.get("DJANGO_HTTPS", "false").lower() == "true":
+    # Render termina el HTTPS y avisa con X-Forwarded-Proto.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    # Render atiende /api/health/ por HTTP interno: no se redirige.
+    SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS") or "3600")
+
+
+# ==========================================================
+# CORS
+# ==========================================================
+
+# Lista explícita de orígenes que pueden llamar a la API desde un navegador.
+# Desarrollo: http://localhost:3000. Producción: la URL HTTPS del frontend.
+# El frontend actual llama a la API desde su servidor, no desde el navegador.
+
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "")
+
+if not DEBUG and any("*" in origin for origin in CORS_ALLOWED_ORIGINS):
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured("CORS_ALLOWED_ORIGINS no admite comodines en producción.")
 
 
 # ==========================================================

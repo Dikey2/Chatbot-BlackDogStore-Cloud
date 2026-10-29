@@ -1,3 +1,5 @@
+import { getLocale } from "@/lib/locale";
+import { t } from "@/lib/i18n";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -7,34 +9,30 @@ import { listConversations, STATUS_LABELS, type ConversationStatus } from "@/lib
 export const metadata: Metadata = { title: "Bandeja del asesor" };
 
 const STATUSES = Object.keys(STATUS_LABELS) as ConversationStatus[];
-const dateFormat = new Intl.DateTimeFormat("es-PE", {
-  dateStyle: "short",
-  timeStyle: "short",
-  timeZone: "America/Lima",
-});
 
 async function Inbox({ token, status, page }: { token: string; status: ConversationStatus; page: number }) {
+  const locale = await getLocale();
   const result = await listConversations(token, status, page);
   if (!result.ok) {
     return (
       <p className="error" role="alert">
-        {result.status === 404 ? "Esa página no existe." : result.error.message}{" "}
-        <Link href={`/asesor?estado=${status}`}>Volver a la primera página</Link>
+        {result.status === 404 ? t(locale, "faq.missingPage") : result.error.message}{" "}
+        <Link href={`/asesor?estado=${status}`}>{t(locale, "faq.firstPage")}</Link>
       </p>
     );
   }
   const { count, next, previous, results } = result.data;
-  if (count === 0) return <p className="muted">No hay conversaciones en este estado.</p>;
+  if (count === 0) return <p className="muted">{t(locale, "advisor.empty")}</p>;
   return (
     <>
       <div className="table-wrap">
         <table className="table" data-testid="inbox-table">
           <thead>
             <tr>
-              <th>N.º</th>
-              <th>Cliente</th>
-              <th>Inicio</th>
-              <th>Acciones</th>
+              <th>{t(locale, "advisor.number")}</th>
+              <th>{t(locale, "common.client")}</th>
+              <th>{t(locale, "advisor.start")}</th>
+              <th>{t(locale, "common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -42,9 +40,9 @@ async function Inbox({ token, status, page }: { token: string; status: Conversat
               <tr key={conversation.id}>
                 <td>{conversation.id}</td>
                 <td>{conversation.user_name}</td>
-                <td>{dateFormat.format(new Date(conversation.created_at))}</td>
+                <td>{new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-PE", { dateStyle: "short", timeStyle: "short", timeZone: "America/Lima" }).format(new Date(conversation.created_at))}</td>
                 <td>
-                  <Link href={`/asesor/${conversation.id}`}>Ver conversación</Link>
+                  <Link href={`/asesor/${conversation.id}`}>{t(locale, "advisor.view")}</Link>
                 </td>
               </tr>
             ))}
@@ -52,24 +50,25 @@ async function Inbox({ token, status, page }: { token: string; status: Conversat
         </table>
       </div>
       <nav className="links" aria-label="Paginación">
-        {previous && <Link href={`/asesor?estado=${status}&page=${page - 1}`}>Anterior</Link>}
+        {previous && <Link href={`/asesor?estado=${status}&page=${page - 1}`}>{t(locale, "common.previous")}</Link>}
         <span className="muted">
-          Página {page} · {count} en total
+          {t(locale, "common.page")} {page} · {t(locale, "advisor.total", { count })}
         </span>
-        {next && <Link href={`/asesor?estado=${status}&page=${page + 1}`}>Siguiente</Link>}
+        {next && <Link href={`/asesor?estado=${status}&page=${page + 1}`}>{t(locale, "common.next")}</Link>}
       </nav>
     </>
   );
 }
 
 async function AdvisorInbox({ searchParams }: { searchParams: PageProps<"/asesor">["searchParams"] }) {
+  const locale = await getLocale();
   const { estado, page } = await searchParams;
   const status = STATUSES.includes(estado as ConversationStatus) ? (estado as ConversationStatus) : "derivada";
   const pageNumber = Math.max(1, Number.parseInt(String(page ?? "1"), 10) || 1);
   return (
     <RoleGate
       roles={["asesor", "admin"]}
-      forbiddenMessage="No tienes permiso para ver la bandeja del asesor."
+      forbiddenMessage={t(locale, "advisor.forbidden")}
       retryHref="/asesor"
     >
       {async (token) => (
@@ -77,7 +76,7 @@ async function AdvisorInbox({ searchParams }: { searchParams: PageProps<"/asesor
           <nav className="tabs" aria-label="Estado">
             {STATUSES.map((value) => (
               <Link key={value} href={`/asesor?estado=${value}`} aria-current={value === status ? "page" : undefined}>
-                {STATUS_LABELS[value]}
+                {t(locale, value === "derivada" ? "advisor.escalated" : value === "abierta" ? "advisor.open" : "advisor.closed")}
               </Link>
             ))}
           </nav>
@@ -88,17 +87,18 @@ async function AdvisorInbox({ searchParams }: { searchParams: PageProps<"/asesor
   );
 }
 
-export default function AdvisorPage({ searchParams }: PageProps<"/asesor">) {
+export default async function AdvisorPage({ searchParams }: PageProps<"/asesor">) {
+  const locale = await getLocale();
   return (
     <main className="wide">
-      <h1>Bandeja del asesor</h1>
+      <h1>{t(locale, "advisor.title")}</h1>
       <p className="muted">
-        Las conversaciones derivadas son consultas que el chatbot no pudo responder.
+        {t(locale, "advisor.intro")}
       </p>
       <p>
-        <Link href="/chat">Volver al chat</Link>
+        <Link href="/chat">{t(locale, "common.backChat")}</Link>
       </p>
-      <Suspense fallback={<p className="muted">Cargando conversaciones…</p>}>
+      <Suspense fallback={<p className="muted">{t(locale, "advisor.loading")}</p>}>
         <AdvisorInbox searchParams={searchParams} />
       </Suspense>
     </main>
