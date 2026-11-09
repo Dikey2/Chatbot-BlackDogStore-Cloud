@@ -30,6 +30,8 @@ STOPWORDS = {
     "un", "una", "el", "la", "los", "las", "de", "del",
     "en", "por", "para", "me", "puedes", "mostrar",
     "productos", "producto", "catalogo", "comprar",
+    "equipo", "equipos", "seminuevo", "seminuevos",
+    "nuevo", "nuevos", "disponibilidad", "venden",
 }
 
 
