@@ -41,7 +41,7 @@ export async function api<T>(
       method: options.method ?? "GET",
       headers: requestHeaders,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(60000),
     });
     const data = response.status === 204 ? null : await response.json();
     if (response.ok) return { ok: true, status: response.status, data: data as T };
@@ -68,7 +68,7 @@ type HealthBody = { checks?: { database?: string; chatbot?: string } };
 export async function getHealth(): Promise<Health> {
   try {
     const response = await fetch(`${API_INTERNAL_URL}/api/health/`, {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(60000),
     });
     // La API responde 200 o 503 con el mismo cuerpo JSON.
     const body: HealthBody = await response.json();
