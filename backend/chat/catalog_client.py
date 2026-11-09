@@ -32,7 +32,7 @@ def get_products():
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=8) as response:
+        with urllib.request.urlopen(request, timeout=25) as response:
             if response.status != 200:
                 raise CatalogUnavailable("Respuesta HTTP inesperada.")
 

@@ -58,6 +58,9 @@ def catalog_reply(message):
             "escalate": False,
         }
 
+    # No recomendar productos que tengan inventario confirmado en cero.
+    products = [p for p in products if p["inventory"] != 0]
+
     text = normalize(message)
 
     if "seminuevo" in text or "seminuevos" in text:
