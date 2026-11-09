@@ -21,7 +21,7 @@ from .serializers import (
     SendMessageSerializer,
 )
 from .services import ask_chatbot
-
+from .catalog_replies import catalog_reply
 
 class ConversationClosed(APIException):
     status_code = 409
@@ -62,7 +62,9 @@ class SendMessageView(APIView):
             for faq in FAQ.objects.filter(is_active=True)
         ]
         # Si el chatbot falla se responde 503 y no se guarda nada.
-        reply = ask_chatbot(text, faqs)
+        reply = catalog_reply(text)
+        if reply is None:
+            reply = ask_chatbot(text, faqs)
 
         with transaction.atomic():
             if conversation is None:
