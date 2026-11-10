@@ -3,7 +3,12 @@
 El servicio no guarda contenido. La API principal envía en cada consulta las FAQ
 activas que administra (RF-04, RF-07).
 
+Cada negocio envía su configuración (``settings``): nombre, nombre del asistente,
+mensaje sin respuesta, mensaje y palabras de derivación. Sin ella se usan textos
+neutros; el servicio nunca inventa datos comerciales.
+
 Orden de decisión:
+0. Regla de derivación del negocio (por ejemplo, "quiero hablar con un asesor").
 1. FAQ con más palabras clave coincidentes.
 2. Conversación básica (saludo, agradecimiento, despedida, ayuda), solo si el
    mensaje no contiene nada más.
@@ -38,7 +43,17 @@ FILLER = {
     "bot", "asistente", "me", "te", "le", "tu", "usted", "ustedes", "pues", "bueno", "ok",
 }
 
-GREETING = "¡Hola! Soy el asistente virtual de Black Dog Store."
+DEFAULT_ASSISTANT = "el asistente virtual"
+DEFAULT_HANDOFF = "Listo. Un asesor revisará tu consulta y te responderá por este chat."
+
+
+def _greeting(settings):
+    business = (settings or {}).get("business_name", "").strip()
+    assistant = (settings or {}).get("assistant_name", "").strip() or DEFAULT_ASSISTANT
+    return f"¡Hola! Soy {assistant}{f' de {business}' if business and business not in assistant else ''}."
+
+
+GREETING = _greeting({"business_name": "Black Dog Store"})
 
 
 def normalize_text(text):
@@ -60,7 +75,7 @@ def _topics(faqs):
     return "Puedo ayudarte con: " + ", ".join(categories) + ". ¿Qué deseas consultar?"
 
 
-def small_talk(message, faqs):
+def small_talk(message, faqs, settings=None):
     """Categoría y respuesta si el mensaje es solo conversación básica; si no, None."""
     text = f" {normalize_text(message)} "
     found = []
@@ -77,17 +92,32 @@ def small_talk(message, faqs):
         return None
 
     if "ayuda" in found or "saludo" in found:
-        answer = f"{GREETING} {_topics(faqs)}"
+        answer = f"{_greeting(settings) if settings else GREETING} {_topics(faqs)}"
         category = "ayuda" if "ayuda" in found else "saludo"
     elif "agradecimiento" in found:
         answer, category = "¡Con gusto! Si tienes otra consulta, escríbeme.", "agradecimiento"
     else:
-        answer, category = "¡Hasta pronto! Gracias por escribir a Black Dog Store.", "despedida"
+        business = (settings or {}).get("business_name", "Black Dog Store").strip()
+        answer = f"¡Hasta pronto! Gracias por escribir{f' a {business}' if business else ''}."
+        category = "despedida"
     return category, answer
 
 
-def find_reply(message, faqs):
+def wants_handoff(message, keywords):
+    text = f" {normalize_text(message)} "
+    return any(f" {normalize_text(k)} " in text for k in keywords if normalize_text(k))
+
+
+def find_reply(message, faqs, settings=None):
     """Devuelve la FAQ con más palabras clave, conversación básica o derivación (RF-09)."""
+    settings = settings or {}
+    if wants_handoff(message, settings.get("handoff_keywords") or []):
+        return {
+            "answer": settings.get("handoff_message") or DEFAULT_HANDOFF,
+            "category": "derivacion",
+            "matched": True,
+            "escalate": True,
+        }
     words = normalize(message)
     best, best_score = None, 0
     for faq in faqs:
@@ -103,9 +133,10 @@ def find_reply(message, faqs):
             "escalate": False,
         }
 
-    talk = small_talk(message, faqs)
+    talk = small_talk(message, faqs, settings or None)
     if talk is not None:
         category, answer = talk
         return {"answer": answer, "category": category, "matched": True, "escalate": False}
 
-    return {"answer": FALLBACK, "category": None, "matched": False, "escalate": True}
+    fallback = settings.get("no_answer_message") or FALLBACK
+    return {"answer": fallback, "category": None, "matched": False, "escalate": True}

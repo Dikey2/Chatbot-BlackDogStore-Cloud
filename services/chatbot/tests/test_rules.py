@@ -1,4 +1,4 @@
-from bot.rules import find_reply, normalize
+from bot.rules import FALLBACK, find_reply, normalize
 
 FAQS = [
     {"category": "horarios", "answer": "Horario ficticio.", "keywords": ["horario", "atención"]},
@@ -100,3 +100,46 @@ def test_greeting_word_inside_other_word_is_not_a_greeting():
     # "chaleco" contiene "chao" a medias y "holanda" contiene "hola".
     assert find_reply("holanda", FAQS)["escalate"] is True
     assert find_reply("chaleco", FAQS)["escalate"] is True
+
+
+# ---------------------------------------------------------------- configuración por negocio
+
+CAFE = {
+    "business_name": "Café Aurora",
+    "assistant_name": "Aurora",
+    "no_answer_message": "No lo sé; te paso con el equipo del café.",
+    "handoff_message": "Te comunico con una persona del café.",
+    "handoff_keywords": ["asesor", "hablar con alguien"],
+}
+
+
+def test_greeting_uses_business_settings():
+    reply = find_reply("hola", [], CAFE)
+    assert reply["answer"].startswith("¡Hola! Soy Aurora de Café Aurora.")
+    assert "Black Dog" not in reply["answer"]
+
+
+def test_farewell_uses_business_name():
+    assert find_reply("adiós", [], CAFE)["answer"] == "¡Hasta pronto! Gracias por escribir a Café Aurora."
+
+
+def test_handoff_rule_escalates_before_faqs():
+    faqs = [{"category": "asesoria", "answer": "x", "keywords": ["asesor"]}]
+    reply = find_reply("quiero un asesor", faqs, CAFE)
+    assert reply == {
+        "answer": "Te comunico con una persona del café.",
+        "category": "derivacion",
+        "matched": True,
+        "escalate": True,
+    }
+    assert find_reply("Necesito HABLAR con alguien", [], CAFE)["escalate"] is True
+
+
+def test_no_answer_uses_business_message():
+    reply = find_reply("¿venden bicicletas?", [], CAFE)
+    assert (reply["answer"], reply["escalate"]) == (CAFE["no_answer_message"], True)
+
+
+def test_without_settings_behaviour_is_unchanged():
+    assert find_reply("hola", []) == find_reply("hola", [], None)
+    assert find_reply("algo raro", [])["answer"] == FALLBACK

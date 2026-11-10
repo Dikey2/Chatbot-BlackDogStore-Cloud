@@ -11,9 +11,22 @@ class FAQInputSerializer(serializers.Serializer):
     keywords = serializers.ListField(child=serializers.CharField(max_length=100))
 
 
+class BotSettingsSerializer(serializers.Serializer):
+    """Configuración del negocio. Todo opcional: sin ella, textos neutros."""
+
+    business_name = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    assistant_name = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    no_answer_message = serializers.CharField(max_length=300, required=False, allow_blank=True)
+    handoff_message = serializers.CharField(max_length=300, required=False, allow_blank=True)
+    handoff_keywords = serializers.ListField(
+        child=serializers.CharField(max_length=60), required=False, max_length=30
+    )
+
+
 class ReplyInputSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=500)
     faqs = FAQInputSerializer(many=True, allow_empty=True)
+    settings = BotSettingsSerializer(required=False)
 
 
 @api_view(["GET"])

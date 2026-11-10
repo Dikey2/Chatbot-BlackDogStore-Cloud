@@ -26,7 +26,7 @@ services:
       DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
       CHATBOT_WORKERS: ${CHATBOT_WORKERS:-2}
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:${CHATBOT_PORT:-8001}:8000"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=2)"]
@@ -56,8 +56,13 @@ services:
       POSTGRES_CONN_MAX_AGE: ${POSTGRES_CONN_MAX_AGE:-60}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       NUM_PROXIES: ${NUM_PROXIES:-}
+      # Plataforma multiempresa y widget.
+      WIDGET_PREVIEW_ORIGINS: ${WIDGET_PREVIEW_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      SEED_PILOT_ORIGINS: ${SEED_PILOT_ORIGINS:-http://localhost:3002,http://127.0.0.1:3002}
+      SEED_SECOND_ORIGINS: ${SEED_SECOND_ORIGINS:-http://localhost:8090,http://127.0.0.1:8090}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     restart: unless-stopped
     # Vivo = responde HTTP, aunque sea 503 porque una dependencia está caída.
     healthcheck:
@@ -78,7 +83,7 @@ services:
       API_INTERNAL_URL: http://backend:8000
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/mantenimiento').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
