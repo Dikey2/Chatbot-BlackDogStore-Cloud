@@ -20,16 +20,19 @@ COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.loadtest.yml --p
 
 DB_USER=$(grep '^POSTGRES_USER=' .env | cut -d= -f2)
 DB_NAME=$(grep '^POSTGRES_DB=' .env | cut -d= -f2)
+# Proyecto y puerto del stack local (varios stacks pueden convivir en el mismo equipo).
+PROJECT=$(grep '^COMPOSE_PROJECT_NAME=' .env | cut -d= -f2); PROJECT=${PROJECT:-blackdog-chatbot}
+PORT=$(grep '^BACKEND_PORT=' .env | cut -d= -f2); PORT=${PORT:-8000}
 
 # No empezar hasta que Docker marque el backend como "healthy" (tras un reinicio,
 # gunicorn tarda unos segundos en aceptar conexiones).
 for _ in $(seq 1 90); do
-  [ "$(docker inspect -f '{{.State.Health.Status}}' blackdog-chatbot-backend-1 2>/dev/null)" = healthy ] && break
+  [ "$(docker inspect -f '{{.State.Health.Status}}' ${PROJECT}-backend-1 2>/dev/null)" = healthy ] && break
   sleep 1
 done
 ok=0
 for _ in $(seq 1 90); do
-  if curl -fs http://127.0.0.1:8000/api/health/ >/dev/null; then ok=$((ok + 1)); else ok=0; fi
+  if curl -fs http://127.0.0.1:${PORT}/api/health/ >/dev/null; then ok=$((ok + 1)); else ok=0; fi
   [ "$ok" -ge 3 ] && break
   sleep 1
 done
@@ -43,7 +46,7 @@ sample() {
     conns=$(docker compose exec -T db psql -U "$DB_USER" -d "$DB_NAME" -tAc \
       "select count(*) from pg_stat_activity where datname = current_database()" 2>/dev/null || echo "")
     docker stats --no-stream --format '{{.Name}},{{.CPUPerc}},{{.MemUsage}}' \
-      blackdog-chatbot-backend-1 blackdog-chatbot-db-1 blackdog-chatbot-chatbot-1 2>/dev/null \
+      ${PROJECT}-backend-1 ${PROJECT}-db-1 ${PROJECT}-chatbot-1 2>/dev/null \
       | sed "s|^|$now,|; s|$|,$conns|" >> "$DIR/${OUT}_recursos.csv"
     sleep 1
   done

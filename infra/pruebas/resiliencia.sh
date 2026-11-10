@@ -9,15 +9,20 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
-[ "$(docker compose config --format json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])')" = blackdog-chatbot ] \
-  || { echo "Solo se ejecuta contra el proyecto local blackdog-chatbot." >&2; exit 1; }
+# Solo contra un stack LOCAL de este repositorio (blackdog-chatbot o blackdog-saas).
+PROJECT=$(docker compose config --format json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])')
+case "$PROJECT" in
+  blackdog-chatbot|blackdog-saas) ;;
+  *) echo "Solo se ejecuta contra un proyecto local (blackdog-chatbot o blackdog-saas)." >&2; exit 1 ;;
+esac
 
 mkdir -p docs/evidencias
 LOG="docs/evidencias/resiliencia_$(date +%Y%m%d-%H%M%S).log"
 exec > >(tee "$LOG") 2>&1
 
-API=http://127.0.0.1:8000
-WEB=http://127.0.0.1:3000
+BACKEND_PORT=$(grep '^BACKEND_PORT=' .env | cut -d= -f2); FRONTEND_PORT=$(grep '^FRONTEND_PORT=' .env | cut -d= -f2)
+API=http://127.0.0.1:${BACKEND_PORT:-8000}
+WEB=http://127.0.0.1:${FRONTEND_PORT:-3000}
 PASS=$(grep '^DEMO_PASSWORD=' .env | cut -d= -f2)
 DB_USER=$(grep '^POSTGRES_USER=' .env | cut -d= -f2)
 DB_NAME=$(grep '^POSTGRES_DB=' .env | cut -d= -f2)
@@ -31,7 +36,7 @@ trap restore EXIT
 
 wait_healthy() {
   for _ in $(seq 1 90); do
-    [ "$(docker inspect -f '{{.State.Health.Status}}' "blackdog-chatbot-$1-1" 2>/dev/null)" = healthy ] && return 0
+    [ "$(docker inspect -f '{{.State.Health.Status}}' "${PROJECT}-$1-1" 2>/dev/null)" = healthy ] && return 0
     sleep 1
   done
   return 1
@@ -115,11 +120,11 @@ docker compose unpause backend >/dev/null
 
 echo; echo "== 5. Caída del proceso principal del backend (reinicio automático)"
 # La imagen no incluye el binario kill: se usa el de sh. Se exige un reinicio real.
-started=$(docker inspect -f '{{.State.StartedAt}}' blackdog-chatbot-backend-1)
+started=$(docker inspect -f '{{.State.StartedAt}}' ${PROJECT}-backend-1)
 docker compose exec -T backend sh -c 'kill 1' || { echo "  FALLA no se pudo enviar la señal"; FAILS=$((FAILS + 1)); }
 sleep 5
-restarted=$(docker inspect -f '{{.State.StartedAt}}' blackdog-chatbot-backend-1)
-restarts=$(docker inspect -f '{{.RestartCount}}' blackdog-chatbot-backend-1)
+restarted=$(docker inspect -f '{{.State.StartedAt}}' ${PROJECT}-backend-1)
+restarts=$(docker inspect -f '{{.RestartCount}}' ${PROJECT}-backend-1)
 if [ "$restarted" != "$started" ] && wait_healthy backend; then
   echo "  OK    el proceso terminó y Docker reinició el backend (RestartCount=$restarts)"
 else

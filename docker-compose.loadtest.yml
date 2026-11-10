@@ -10,6 +10,12 @@ services:
       THROTTLE_USER: 100000/min
       THROTTLE_AUTH: 100000/min
       THROTTLE_CHAT: 100000/min
+      THROTTLE_WIDGET_SESSION: 100000/min
+      THROTTLE_WIDGET_MESSAGE: 100000/min
+      THROTTLE_WIDGET_MESSAGE_IP: 100000/min
+      THROTTLE_WIDGET_READ: 100000/min
+      # Una sesión de visitante de la prueba envía más mensajes que una real.
+      WIDGET_MAX_MESSAGES_PER_SESSION: "100000"
 
   locust:
     image: locustio/locust:2.46.7
@@ -21,6 +27,9 @@ services:
       TOTAL_REQUESTS: ${TOTAL_REQUESTS:-100}
       # Contraseña de las cuentas de demostración para los perfiles de lectura.
       DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      # Widget: negocio y origen autorizado (seed_demo con SEED_PILOT_PUBLIC_ID).
+      WIDGET_ID: ${SEED_PILOT_PUBLIC_ID:-bd_demo_blackdog}
+      WIDGET_ORIGIN: ${WIDGET_ORIGIN:-http://localhost:3002}
     command: >
       -f locustfile.py --headless Escritura
       --users ${LOAD_USERS:-5} --spawn-rate ${LOAD_USERS:-5}

@@ -8,6 +8,9 @@ Perfiles (se eligen por nombre de clase en la línea de comandos):
   No escribe en PostgreSQL.
 - ``Escritura``: usuario nuevo y ficticio que se registra, inicia sesión y
   conversa con el chatbot. Escribe usuarios, tokens, conversaciones y mensajes.
+- ``Widget``: visitante anónimo del widget público (sin cuenta): carga la
+  configuración, abre una sesión, conversa y consulta su historial como lo hace
+  ``widget.js``. Envía la cabecera ``Origin`` de un dominio autorizado.
 
 Modalidades:
 
@@ -169,3 +172,49 @@ class Escritura(Base):
     @task(1)
     def health(self):
         self.get("/api/health/", auth=False)
+
+
+WIDGET_ID = os.environ.get("WIDGET_ID", "bd_demo_blackdog")
+WIDGET_ORIGIN = os.environ.get("WIDGET_ORIGIN", "http://localhost:3002")
+
+
+class Widget(Base):
+    """Visitante anónimo del widget: el flujo real de widget.js."""
+
+    def on_start(self):
+        self.base = f"/api/widget/{WIDGET_ID}"
+        self.headers = {"Origin": WIDGET_ORIGIN}
+        self.take()
+        self.client.get(f"{self.base}/config/", headers=self.headers, name="/api/widget/[id]/config/")
+        self.take()
+        response = self.client.post(
+            f"{self.base}/session/", json={}, headers=self.headers, name="/api/widget/[id]/session/"
+        )
+        if response.status_code != 201:
+            raise StopUser()
+        self.headers = {**self.headers, "X-Visitor-Token": response.json()["token"]}
+        self.turn = 0
+        self.last = 0
+
+    @task(3)
+    def mensaje(self):
+        self.take()
+        self.turn += 1
+        response = self.client.post(
+            f"{self.base}/messages/",
+            json={"message": QUESTIONS[self.turn % len(QUESTIONS)]},
+            headers=self.headers,
+            name="/api/widget/[id]/messages/",
+        )
+        if response.status_code == 201:
+            self.last = response.json()["bot_message"]["id"]
+
+    @task(4)
+    def sondeo(self):
+        # widget.js consulta respuestas nuevas del asesor cada pocos segundos.
+        self.take()
+        self.client.get(
+            f"{self.base}/conversation/?after={self.last}",
+            headers=self.headers,
+            name="/api/widget/[id]/conversation/",
+        )
