@@ -287,3 +287,12 @@ def test_visitor_token_is_useless_on_staff_api(api, shop):
         "/api/chat/conversations/", HTTP_AUTHORIZATION=f"Token {token}"
     )
     assert response.status_code == 401
+
+
+
+def test_widget_script_supports_light_dark_and_host_themes(api):
+    body = api.get("/widget.js").content.decode()
+    # data-theme="light|dark|auto|host" y paleta oscura con contraste garantizado.
+    assert 'getAttribute("data-theme")' in body
+    assert ":host([data-mode=dark])" in body
+    assert "MutationObserver" in body and "setTheme" in body

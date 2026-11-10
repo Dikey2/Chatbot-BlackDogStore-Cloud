@@ -70,7 +70,9 @@ conversaciones; los datos de uno nunca aparecen en otro.
    <script src="https://PLATAFORMA/widget.js" data-chatbot-id="ID_PUBLICO" defer></script>
    ```
    Opcionales: `data-position="left"`, `data-offset-bottom="96"`,
-   `data-launcher="none"` (la página abre el chat con `window.BDChatbot.open()`).
+   `data-launcher="none"` (la página abre el chat con `window.BDChatbot.open()`),
+   `data-theme="light|dark|auto|host"` (`host` sigue el tema claro/oscuro de la página,
+   p. ej. `data-theme` o la clase `dark` en `<html>`, también al cambiarlo).
 3. Probar el widget en `/vista-previa?id=ID_PUBLICO` o en la segunda web ficticia:
    `docker compose --profile demo up -d demo-cafe` → http://localhost:8090.
 4. El visitante conversa sin cuenta. Si el bot no tiene la respuesta, o el
