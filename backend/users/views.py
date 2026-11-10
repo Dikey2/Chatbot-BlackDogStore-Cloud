@@ -4,7 +4,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
+from core.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from audit.models import AuditEvent

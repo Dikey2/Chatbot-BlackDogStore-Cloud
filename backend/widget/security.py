@@ -11,7 +11,7 @@
 from django.conf import settings
 from django.utils import timezone
 from rest_framework.exceptions import APIException, AuthenticationFailed, NotFound, PermissionDenied
-from rest_framework.throttling import SimpleRateThrottle
+from core.throttling import SimpleRateThrottle
 
 from tenants.models import Business, BusinessDomain, VisitorSession
 
@@ -39,10 +39,24 @@ class SessionLimitReached(APIException):
     default_detail = "Se alcanzó el límite de mensajes de esta sesión."
 
 
-def origin_allowed(public_id, origin):
-    """¿Puede ``origin`` usar el widget del negocio ``public_id``? Lo usan la vista y el CORS."""
+def origin_allowed(public_id, origin, request=None):
+    """¿Puede ``origin`` usar el widget del negocio ``public_id``? Lo usan la vista y el CORS.
+
+    El resultado se guarda en la petición: el middleware de CORS y la vista
+    preguntan lo mismo y antes eran dos consultas idénticas.
+    """
     if not origin:
         return False
+    memo = getattr(request, "_widget_origin", None) if request is not None else None
+    if memo is not None and memo[0] == (public_id, origin):
+        return memo[1]
+    allowed = _origin_allowed(public_id, origin)
+    if request is not None:
+        request._widget_origin = ((public_id, origin), allowed)
+    return allowed
+
+
+def _origin_allowed(public_id, origin):
     if origin in settings.WIDGET_PREVIEW_ORIGINS:
         return Business.objects.filter(public_id=public_id).exists()
     return BusinessDomain.objects.filter(
@@ -61,7 +75,7 @@ def widget_business(request, public_id):
         # Inexistente, suspendido o desactivado: la misma respuesta.
         raise ChatbotNotFound()
     origin = request.headers.get("Origin", "")
-    if not origin_allowed(public_id, origin):
+    if not origin_allowed(public_id, origin, getattr(request, "_request", request)):
         raise OriginNotAllowed()
     # Para el log de la petición: el widget actúa en este negocio, sin usuario.
     django_request = getattr(request, "_request", request)

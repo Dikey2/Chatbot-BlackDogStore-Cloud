@@ -115,8 +115,10 @@ class LecturaAsesor(Base):
         self.login("asesor@example.com", DEMO_PASSWORD)
         # Solo se piden páginas que existen (máximo 5 por estado): una página
         # inexistente responde 404 y mediría un error de la prueba, no del servidor.
+        # "abierta" no se usa: con el perfil Widget en paralelo, las abiertas pasan
+        # a derivadas y sus páginas desaparecen durante la prueba (404 de la prueba).
         self.pages = {}
-        for status in ("derivada", "abierta", "cerrada"):
+        for status in ("derivada", "cerrada"):
             count = self.get(
                 f"/api/chat/conversations/?status={status}",
                 name="/api/chat/conversations/?status=[estado]&page=[n]",

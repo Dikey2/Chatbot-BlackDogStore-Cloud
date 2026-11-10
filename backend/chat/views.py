@@ -3,7 +3,7 @@ from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
+from core.throttling import ScopedRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 
 from audit.models import AuditEvent

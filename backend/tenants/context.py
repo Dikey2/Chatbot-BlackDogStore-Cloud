@@ -52,15 +52,18 @@ def _from_header(request, raw):
     return business
 
 
-def implicit_business(user):
+def _implicit_membership(user):
     if user and user.is_authenticated:
-        membership = (
+        return (
             Membership.objects.filter(user=user).select_related("business")
             .order_by("business__name", "business_id").first()
         )
-        if membership is not None:
-            return membership.business
-    return default_business()
+    return None
+
+
+def implicit_business(user):
+    membership = _implicit_membership(user)
+    return membership.business if membership is not None else default_business()
 
 
 def resolve(request):
@@ -72,11 +75,18 @@ def resolve(request):
     user = getattr(request, "user", None)
     if raw and user is not None and user.is_authenticated:
         business = _from_header(request, raw)
+        role = role_in(user, business)
     else:
-        business = implicit_business(user)
+        # Una sola consulta: la membresía implícita ya trae el negocio y el rol.
+        membership = _implicit_membership(user)
+        if membership is not None:
+            business = membership.business
+            role = Membership.Role.ADMIN if user.is_superuser else membership.role
+        else:
+            business = default_business()
+            role = role_in(user, business) if user is not None and user.is_superuser else None
     if business is None:
         raise NotFound("Negocio no encontrado.")
-    role = role_in(user, business)
     if not business.is_active and not is_platform_admin(user):
         # Un negocio suspendido no opera: ni su equipo ni sus clientes.
         raise BusinessSuspended()

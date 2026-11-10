@@ -11,6 +11,12 @@
 # Los rate limits se suben al empezar y se restauran SIEMPRE al terminar.
 set -uo pipefail
 cd "$(dirname "$0")/.."
+# macOS: impedir la suspensión por inactividad mientras dura la campaña. En la
+# verificación del 100 % el equipo se suspendió 234 s a mitad de una corrida y
+# Locust midió esa pausa como lentitud del servidor.
+if command -v caffeinate >/dev/null 2>&1 && [ -z "${CAFFEINATED:-}" ]; then
+  exec env CAFFEINATED=1 caffeinate -i "$0" "$@"
+fi
 TAG=${1:-antes}
 USERS=${USERS:-100}
 trap 'loadtest/limites.sh normales' EXIT

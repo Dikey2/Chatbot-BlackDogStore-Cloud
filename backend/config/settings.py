@@ -247,8 +247,8 @@ REST_FRAMEWORK = {
 
     # Límites de peticiones.
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
+        "core.throttling.AnonRateThrottle",
+        "core.throttling.UserRateThrottle",
     ],
 
     "DEFAULT_THROTTLE_RATES": {

@@ -74,3 +74,33 @@ def test_404_does_not_reveal_internal_model_names(api, db):
 def test_rate_limit_counters_use_shared_database_cache(settings):
     # Varios procesos de gunicorn deben compartir los contadores.
     assert settings.CACHES["default"]["BACKEND"] == "django.core.cache.backends.db.DatabaseCache"
+
+
+def test_counter_window_resets_after_its_duration(api):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from core.models import RateCounter
+
+    for _ in range(60):
+        api.get("/api/faqs/")
+    assert api.get("/api/faqs/").status_code == 429
+    # Pasado el minuto de la ventana, el contador vuelve a empezar.
+    RateCounter.objects.update(window_start=timezone.now() - timedelta(seconds=61))
+    assert api.get("/api/faqs/").status_code == 200
+
+
+def test_each_limit_costs_a_single_query(api):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    api.get("/api/faqs/")
+    with CaptureQueriesContext(connection) as queries:
+        api.get("/api/faqs/")
+    counters = [q for q in queries.captured_queries if "core_ratecounter" in q["sql"]]
+    cache = [q for q in queries.captured_queries if "django_cache" in q["sql"]]
+    # Un anónimo pasa por los límites "anon" y "user" (DRF limita a anónimos por IP):
+    # una consulta cada uno. Antes eran 8 consultas a django_cache.
+    keys = sorted(q["sql"].split("VALUES ('")[1].split("_")[1] for q in counters)
+    assert keys == ["anon", "user"] and cache == []

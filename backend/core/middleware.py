@@ -47,7 +47,7 @@ class CorsMiddleware:
 
         public_id = _widget_public_id(request.path)
         if public_id is not None:
-            allowed = self._widget_origin_allowed(public_id, origin)
+            allowed = self._widget_origin_allowed(public_id, origin, request)
             methods, headers = WIDGET_METHODS, WIDGET_HEADERS
         else:
             allowed = origin in settings.CORS_ALLOWED_ORIGINS
@@ -74,11 +74,11 @@ class CorsMiddleware:
         return response
 
     @staticmethod
-    def _widget_origin_allowed(public_id, origin):
+    def _widget_origin_allowed(public_id, origin, request):
         from widget.security import origin_allowed
 
         try:
-            return origin_allowed(public_id, origin)
+            return origin_allowed(public_id, origin, request)
         except Exception:
             # Sin base de datos no se puede comprobar: se rechaza (la vista daría 503).
             return False
