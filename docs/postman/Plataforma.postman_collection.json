@@ -1,0 +1,1073 @@
+{
+  "info": {
+    "name": "Black Dog Store Cloud — Plataforma multiempresa y widget",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Entrega del 100 %. Requiere seed_demo con SEED_PILOT_PUBLIC_ID=bd_demo_blackdog y SEED_SECOND_PUBLIC_ID=bd_demo_cafe. Poner DEMO_PASSWORD en la variable password. Solo contra el entorno LOCAL."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "pilot_id",
+      "value": "bd_demo_blackdog"
+    },
+    {
+      "key": "cafe_id",
+      "value": "bd_demo_cafe"
+    },
+    {
+      "key": "pilot_origin",
+      "value": "http://localhost:3002"
+    },
+    {
+      "key": "cafe_origin",
+      "value": "http://localhost:8090"
+    },
+    {
+      "key": "admin_token",
+      "value": ""
+    },
+    {
+      "key": "cafe_token",
+      "value": ""
+    },
+    {
+      "key": "root_token",
+      "value": ""
+    },
+    {
+      "key": "cafe_business_id",
+      "value": ""
+    },
+    {
+      "key": "visitor_token",
+      "value": ""
+    },
+    {
+      "key": "old_visitor_token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Salud",
+      "item": [
+        {
+          "name": "Liveness sin dependencias",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ok', () => pm.expect(pm.response.json().status).to.eql('ok'));",
+                  "pm.test('request id', () => pm.expect(pm.response.headers.get('X-Request-ID')).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health/live/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "health",
+                "live",
+                ""
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Sesiones",
+      "item": [
+        {
+          "name": "Login superadministrador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('root_token', pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"plataforma@example.com\", \"password\": \"{{password}}\"}"
+            }
+          }
+        },
+        {
+          "name": "Login admin del piloto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('admin_token', pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"admin@example.com\", \"password\": \"{{password}}\"}"
+            }
+          }
+        },
+        {
+          "name": "Login admin del café",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('cafe_token', pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"admin@cafe.example.com\", \"password\": \"{{password}}\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Plataforma (superadministrador)",
+      "item": [
+        {
+          "name": "Listar negocios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const cafe = pm.response.json().results.find(b => b.slug === 'cafe-aurora');",
+                  "pm.test('existe el segundo negocio', () => pm.expect(cafe).to.be.an('object'));",
+                  "pm.collectionVariables.set('cafe_business_id', cafe.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{root_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/platform/businesses/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "platform",
+                "businesses",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin de negocio no entra a la plataforma",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/platform/businesses/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "platform",
+                "businesses",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Auditoría de plataforma (sin negocio)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('solo eventos sin negocio', () => pm.response.json().results.forEach(e => pm.expect(e.business).to.eql(null)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{root_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/platform/audit/?business=none",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "platform",
+                "audit",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "business",
+                  "value": "none"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Métricas globales",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('2+ negocios', () => pm.expect(pm.response.json().businesses_total).to.be.at.least(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{root_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/platform/metrics/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "platform",
+                "metrics",
+                ""
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Aislamiento entre negocios",
+      "item": [
+        {
+          "name": "Admin del piloto: su negocio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('es el piloto', () => pm.expect(pm.response.json().public_id).to.eql(pm.collectionVariables.get('pilot_id')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/business/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "business",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin del piloto pide el negocio del café por cabecera",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              },
+              {
+                "key": "X-Business-Id",
+                "value": "{{cafe_business_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/business/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "business",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin del café: FAQ solo propias",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const text = JSON.stringify(pm.response.json());",
+                  "pm.test('no ve FAQ del piloto', () => pm.expect(text).not.to.include('garantía'));",
+                  "pm.test('ve las suyas', () => pm.expect(text).to.include('carta'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{cafe_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/faqs/?page_size=100",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "faqs",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "page_size",
+                  "value": "100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dominio inválido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/business/domains/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "business",
+                "domains",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"origin\": \"https://*.ejemplo.com\"}"
+            }
+          }
+        },
+        {
+          "name": "Métricas del negocio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('campos', () => pm.expect(pm.response.json()).to.have.property('conversations_total'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Token {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/business/metrics/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "business",
+                "metrics",
+                ""
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Widget público",
+      "item": [
+        {
+          "name": "Configuración desde origen autorizado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('CORS del origen', () => pm.expect(pm.response.headers.get('Access-Control-Allow-Origin')).to.eql(pm.collectionVariables.get('pilot_origin')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{pilot_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{pilot_id}}/config/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{pilot_id}}",
+                "config",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Configuración desde origen no autorizado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "https://pirata.example.com"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{pilot_id}}/config/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{pilot_id}}",
+                "config",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sesión anónima",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('visitor_token', pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{pilot_origin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{pilot_id}}/session/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{pilot_id}}",
+                "session",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "Mensaje con FAQ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('responde la FAQ del negocio', () => pm.expect(pm.response.json().bot_message.content).to.include('garantía'));",
+                  "pm.test('no derivada', () => pm.expect(pm.response.json().escalated).to.eql(false));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{pilot_origin}}"
+              },
+              {
+                "key": "X-Visitor-Token",
+                "value": "{{visitor_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{pilot_id}}/messages/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{pilot_id}}",
+                "messages",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"message\": \"¿Tienen garantía?\"}"
+            }
+          }
+        },
+        {
+          "name": "Pedir asesor por regla del negocio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('derivada', () => pm.expect(pm.response.json().conversation.status).to.eql('derivada'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{pilot_origin}}"
+              },
+              {
+                "key": "X-Visitor-Token",
+                "value": "{{visitor_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{pilot_id}}/messages/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{pilot_id}}",
+                "messages",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"message\": \"quiero hablar con un asesor\"}"
+            }
+          }
+        },
+        {
+          "name": "Historial del visitante",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('4 mensajes', () => pm.expect(pm.response.json().messages.length).to.eql(4));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{pilot_origin}}"
+              },
+              {
+                "key": "X-Visitor-Token",
+                "value": "{{visitor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{pilot_id}}/conversation/?after=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{pilot_id}}",
+                "conversation",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "after",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Token del piloto en el widget del café",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{cafe_origin}}"
+              },
+              {
+                "key": "X-Visitor-Token",
+                "value": "{{visitor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{cafe_id}}/conversation/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{cafe_id}}",
+                "conversation",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rotar token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('old_visitor_token', pm.collectionVariables.get('visitor_token'));",
+                  "pm.collectionVariables.set('visitor_token', pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{pilot_origin}}"
+              },
+              {
+                "key": "X-Visitor-Token",
+                "value": "{{visitor_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{pilot_id}}/session/rotate/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{pilot_id}}",
+                "session",
+                "rotate",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "El token anterior ya no sirve",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('código', () => pm.expect(pm.response.json().error.code).to.eql('visitor_session_invalid'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{pilot_origin}}"
+              },
+              {
+                "key": "X-Visitor-Token",
+                "value": "{{old_visitor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{pilot_id}}/conversation/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{pilot_id}}",
+                "conversation",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "El token nuevo conserva la conversación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('misma conversación', () => pm.expect(pm.response.json().messages.length).to.eql(4));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{pilot_origin}}"
+              },
+              {
+                "key": "X-Visitor-Token",
+                "value": "{{visitor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{pilot_id}}/conversation/?after=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{pilot_id}}",
+                "conversation",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "after",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mensaje vacío",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "{{pilot_origin}}"
+              },
+              {
+                "key": "X-Visitor-Token",
+                "value": "{{visitor_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/widget/{{pilot_id}}/messages/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "widget",
+                "{{pilot_id}}",
+                "messages",
+                ""
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"message\": \"\"}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

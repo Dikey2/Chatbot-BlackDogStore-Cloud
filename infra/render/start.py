@@ -155,8 +155,8 @@ def start_backend():
             workers,
             "--timeout",
             "30",
-            "--access-logfile",
-            "-",
+            # Sin --access-logfile: el backend ya escribe un log JSON por petición
+            # (core.logging.RequestLogMiddleware); el de gunicorn lo duplicaría.
         ],
         BACKEND_DIR,
     )

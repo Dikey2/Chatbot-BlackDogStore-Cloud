@@ -44,6 +44,10 @@
     {
       "key": "admin_id",
       "value": ""
+    },
+    {
+      "key": "allowed_origin",
+      "value": "http://localhost:3000"
     }
   ],
   "item": [
@@ -1757,7 +1761,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('HTTP 204', () => pm.response.to.have.status(204));",
-                  "pm.test('origen devuelto', () => pm.expect(pm.response.headers.get('Access-Control-Allow-Origin')).to.eql('http://localhost:3000'));",
+                  "pm.test('origen devuelto', () => pm.expect(pm.response.headers.get('Access-Control-Allow-Origin')).to.eql(pm.variables.get('allowed_origin')));",
                   "pm.test('cabeceras permitidas', () => pm.expect(pm.response.headers.get('Access-Control-Allow-Headers')).to.eql('Authorization, Content-Type'));"
                 ]
               }
@@ -1768,7 +1772,7 @@
             "header": [
               {
                 "key": "Origin",
-                "value": "http://localhost:3000"
+                "value": "{{allowed_origin}}"
               },
               {
                 "key": "Access-Control-Request-Method",

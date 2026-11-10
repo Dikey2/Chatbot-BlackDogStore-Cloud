@@ -1,0 +1,103 @@
+== Inicio 2026-11-10 15:04:46
+Datos antes: 12 usuarios, 354 conversaciones, 89503 mensajes
+
+== 1. Chatbot detenido
+ Container blackdog-saas-chatbot-1 Stopping 
+ Container blackdog-saas-chatbot-1 Stopped 
+  OK    health sin chatbot (esperado 503)
+  OK    health indica chatbot=error
+  OK    enviar mensaje (esperado 503)
+  OK    código chatbot_unavailable
+  OK    sin detalles internos en la respuesta
+  OK    no se guardó nada (esperado 12 usuarios, 354 conversaciones, 89503 mensajes)
+  OK    widget con chatbot caído (respuesta de respaldo) (esperado 201)
+  OK    degraded=true y conversación derivada a un asesor
+ Container blackdog-saas-chatbot-1 Starting 
+ Container blackdog-saas-chatbot-1 Started 
+  OK    chat tras reiniciar chatbot (esperado 201)
+
+== 2. Chatbot congelado (tiempo de espera de 3 s)
+ Container blackdog-saas-chatbot-1 Paused 
+  OK    mensaje con chatbot congelado (504) (esperado 504)
+  tiempo de respuesta: 3.015632s (límite del backend: 3 s)
+  OK    código chatbot_timeout
+ Container blackdog-saas-chatbot-1 Unpaused 
+
+== 3. PostgreSQL detenido
+ Container blackdog-saas-db-1 Stopping 
+ Container blackdog-saas-db-1 Stopped 
+  OK    health sin base (esperado 503)
+  OK    health indica database=error
+  OK    listar FAQ sin base (503) (esperado 503)
+  OK    código database_unavailable
+  OK    sin detalles internos en la respuesta
+  OK    /chat muestra la pantalla de servicio no disponible
+ Container blackdog-saas-db-1 Starting 
+ Container blackdog-saas-db-1 Started 
+  OK    FAQ tras volver la base (sin reiniciar el backend) (esperado 200)
+
+== 4. Backend detenido y congelado (vista desde el frontend)
+ Container blackdog-saas-backend-1 Stopping 
+ Container blackdog-saas-backend-1 Stopped 
+  OK    backend detenido: pantalla 'Servicio no disponible'
+ Container blackdog-saas-db-1 Waiting 
+ Container blackdog-saas-chatbot-1 Waiting 
+ Container blackdog-saas-chatbot-1 Healthy 
+ Container blackdog-saas-db-1 Healthy 
+ Container blackdog-saas-backend-1 Starting 
+ Container blackdog-saas-backend-1 Started 
+ Container blackdog-saas-backend-1 Paused 
+  OK    backend congelado: pantalla 'El servidor tardó demasiado' en 8 s
+ Container blackdog-saas-backend-1 Unpaused 
+
+== 5. Caída del proceso principal del backend (reinicio automático)
+  OK    el proceso terminó y Docker reinició el backend (RestartCount=1)
+  OK    health tras el reinicio (esperado 200)
+
+== 6. Reinicio del backend con carga (Locust, 20 usuarios de lectura, 40 s)
+  reinicio del backend a los 15 s
+ Container blackdog-saas-backend-1 Restarting 
+ Container blackdog-saas-backend-1 Started 
+           Aggregated                                                                      2456   208(8.47%) |     26       0    1707      9 |   61.96        5.25
+  Error report
+  # occurrences      Error                                                                                               
+  ------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+  3                  GET /api/chat/conversations/ (propias): ConnectionResetError(104, 'Connection reset by peer')       
+  4                  GET /api/chat/conversations/latest/: ConnectionResetError(104, 'Connection reset by peer')          
+  5                  GET /api/faqs/: ConnectionResetError(104, 'Connection reset by peer')                               
+  3                  GET /api/users/me/: ConnectionResetError(104, 'Connection reset by peer')                           
+  3                  GET /api/health/: ConnectionResetError(104, 'Connection reset by peer')                             
+  50                 GET /api/chat/conversations/ (propias): ConnectionRefusedError(111, 'Connection refused')           
+  55                 GET /api/faqs/: ConnectionRefusedError(111, 'Connection refused')                                   
+  13                 GET /api/health/: ConnectionRefusedError(111, 'Connection refused')                                 
+  16                 GET /api/users/me/: ConnectionRefusedError(111, 'Connection refused')                               
+  48                 GET /api/chat/conversations/latest/: ConnectionRefusedError(111, 'Connection refused')              
+  3                  GET /api/chat/conversations/ (propias): gaierror(-2, 'Name or service not known')                   
+  1                  GET /api/health/: gaierror(-2, 'Name or service not known')                                         
+  3                  GET /api/faqs/: gaierror(-2, 'Name or service not known')                                           
+  1                  GET /api/chat/conversations/latest/: gaierror(-2, 'Name or service not known')                      
+  ------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+  
+  
+
+== 7. Recarga en caliente de gunicorn (señal HUP) con la misma carga
+  señal HUP a los 15 s (gunicorn renueva sus procesos sin cerrar el puerto)
+ Container blackdog-saas-backend-1 Killing 
+ Container blackdog-saas-backend-1 Killed 
+           Aggregated                                                                      1600     0(0.00%) |    189       2    8402     13 |   40.33        0.00
+ Container blackdog-saas-chatbot-1 Running 
+ Container blackdog-saas-db-1 Running 
+ Container blackdog-saas-backend-1 Recreate 
+ Container blackdog-saas-backend-1 Recreated 
+ Container blackdog-saas-db-1 Waiting 
+ Container blackdog-saas-chatbot-1 Waiting 
+ Container blackdog-saas-chatbot-1 Healthy 
+ Container blackdog-saas-db-1 Healthy 
+ Container blackdog-saas-backend-1 Starting 
+ Container blackdog-saas-backend-1 Started 
+  restaurados rate limits: {'anon': '60/min', 'user': '120/min', 'auth': '10/min', 'chat': '30/min', 'widget_session': '10/min', 'widget_message': '20/min', 'widget_message_ip': '60/min', 'widget_read': '120/min'}
+  OK    health al terminar (esperado 200)
+
+Datos después: 12 usuarios, 356 conversaciones, 89507 mensajes
+== Fin 2026-11-10 15:07:20: 0 fallas
+Evidencia: docs/evidencias/resiliencia_20261110-150446.log

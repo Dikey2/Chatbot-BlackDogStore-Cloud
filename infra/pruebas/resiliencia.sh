@@ -85,21 +85,32 @@ read -r code _ <<<"$(call POST "$API/api/chat/messages/" "$MSG")"; check "enviar
 grep -q chatbot_unavailable /tmp/resiliencia_body && echo "  OK    código chatbot_unavailable"
 no_leak
 check "no se guardó nada" "$before" "$(counts)"
+# Widget público: con el chatbot caído, el mensaje del visitante se guarda igual,
+# recibe una respuesta de respaldo y la conversación pasa a un asesor.
+WID=$(grep '^SEED_PILOT_PUBLIC_ID=' .env | cut -d= -f2); WID=${WID:-bd_demo_blackdog}
+WORIGIN=http://localhost:3002
+VTOKEN=$(curl -s -X POST "$API/api/widget/$WID/session/" -H "Origin: $WORIGIN" -H 'Content-Type: application/json' -d '{}' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin).get("token",""))' 2>/dev/null)
+wbody=$(curl -s -w ' %{http_code}' -X POST "$API/api/widget/$WID/messages/" -H "Origin: $WORIGIN" \
+  -H "X-Visitor-Token: $VTOKEN" -H 'Content-Type: application/json' -d '{"message":"hola, prueba de resiliencia"}')
+check "widget con chatbot caído (respuesta de respaldo)" 201 "${wbody##* }"
+echo "$wbody" | grep -q '"degraded":true' && echo "  OK    degraded=true y conversación derivada a un asesor" || { echo "  FALLA widget sin respaldo"; FAILS=$((FAILS + 1)); }
 docker compose start chatbot >/dev/null; wait_healthy chatbot
 read -r code _ <<<"$(call POST "$API/api/chat/messages/" "$MSG")"; check "chat tras reiniciar chatbot" 201 "$code"
 
 echo; echo "== 2. Chatbot congelado (tiempo de espera de 3 s)"
 docker compose pause chatbot >/dev/null
 read -r code time <<<"$(call POST "$API/api/chat/messages/" "$MSG")"
-check "mensaje con chatbot congelado" 503 "$code"; echo "  tiempo de respuesta: ${time}s (límite del backend: 3 s)"
+check "mensaje con chatbot congelado (504)" 504 "$code"; echo "  tiempo de respuesta: ${time}s (límite del backend: 3 s)"
+grep -q chatbot_timeout /tmp/resiliencia_body && echo "  OK    código chatbot_timeout"
 docker compose unpause chatbot >/dev/null
 
 echo; echo "== 3. PostgreSQL detenido"
 docker compose stop db >/dev/null
 read -r code _ <<<"$(TOKEN= call GET "$API/api/health/")"; check "health sin base" 503 "$code"
 grep -q '"database":"error"' /tmp/resiliencia_body && echo "  OK    health indica database=error"
-read -r code _ <<<"$(TOKEN= call GET "$API/api/faqs/")"; check "listar FAQ sin base" 500 "$code"
-grep -q server_error /tmp/resiliencia_body && echo "  OK    código server_error genérico"
+read -r code _ <<<"$(TOKEN= call GET "$API/api/faqs/")"; check "listar FAQ sin base (503)" 503 "$code"
+grep -q database_unavailable /tmp/resiliencia_body && echo "  OK    código database_unavailable"
 no_leak
 page=$(curl -s --max-time 20 -b "$COOKIE" "$WEB/chat")
 echo "$page" | grep -q 'data-testid="service-unavailable"' && echo "  OK    /chat muestra la pantalla de servicio no disponible" || { echo "  FALLA /chat sin pantalla de caída"; FAILS=$((FAILS + 1)); }

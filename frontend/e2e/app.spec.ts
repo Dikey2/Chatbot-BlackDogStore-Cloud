@@ -120,7 +120,7 @@ test.describe.serial("registro, chat, historial y sesión", () => {
     try {
       const reopenedContext = await reopened.newContext({
         storageState,
-        baseURL: "http://localhost:3000",
+        baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
       });
       const reopenedPage = await reopenedContext.newPage();
       await reopenedPage.goto("/chat");
