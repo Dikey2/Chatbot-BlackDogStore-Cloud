@@ -294,3 +294,17 @@ def test_platform_metrics_are_global(root_api, faq, other_data):
 def test_existing_staff_got_memberships_in_pilot(db, pilot):
     # La migración de datos convierte el rol heredado en membresía del piloto.
     assert pilot.chatbot.assistant_name == "Asistente de Black Dog Store"
+
+
+
+def test_platform_audit_sees_platform_events_only_for_superadmin(root_api, admin_api, api, other, pilot):
+    api.post("/api/auth/login/", {"email": "nadie@example.com", "password": "x" * 12}, format="json")
+    AuditEvent.objects.create(business=other, action="login", result="exito", detail="AURORA")
+    assert admin_api.get("/api/platform/audit/").status_code == 403
+    platform_only = root_api.get("/api/platform/audit/", {"business": "none"}).json()["results"]
+    assert [e["action"] for e in platform_only] == ["login_fallido"]
+    assert platform_only[0]["business"] is None
+    other_only = root_api.get("/api/platform/audit/", {"business": other.id}).json()["results"]
+    assert [e["detail"] for e in other_only] == ["AURORA"]
+    assert other_only[0]["business_name"] == other.name
+    assert root_api.get("/api/platform/audit/", {"business": "x"}).status_code == 400

@@ -8,8 +8,9 @@
  * data-api-url="https://api.plataforma" (si la API no está en el mismo origen que el script),
  * data-launcher="none" (la página usa su propio botón y llama a window.BDChatbot.open()).
  *
- * API para la página anfitriona: window.BDChatbot.open() / .close() / .toggle() y el
- * evento "bdchatbot:ready" en window cuando el widget está listo.
+ * API para la página anfitriona: window.BDChatbot.open() / .close() / .toggle(), el
+ * evento "bdchatbot:ready" cuando el widget está listo y "bdchatbot:unread"
+ * ({ id, count }) cuando cambian los mensajes sin leer (para el botón propio de la página).
  *
  * Diseño:
  * - Shadow DOM: la página anfitriona no altera el widget y el widget no altera la página.
@@ -48,6 +49,8 @@
   var REQUEST_TIMEOUT_MS = 12000;
   var POLL_OPEN_MS = 5000;
   var POLL_CLOSED_MS = 20000;
+  // Si a la sesión le queda menos que esto, se rota el token al cargar la página.
+  var ROTATE_BEFORE_MS = 12 * 60 * 60 * 1000;
 
   var MESSAGES = {
     network: "Sin conexión con el chat. Revisa tu internet e inténtalo de nuevo.",
@@ -78,12 +81,16 @@
       var raw = sessionStorage.getItem(STORE_KEY);
       if (!raw) return;
       var data = JSON.parse(raw);
-      if (data && data.token && Date.parse(data.expires_at) > Date.now()) state.token = data.token;
+      if (data && data.token && Date.parse(data.expires_at) > Date.now()) {
+        state.token = data.token;
+        state.expiresAt = Date.parse(data.expires_at);
+      }
     } catch (e) { /* almacenamiento bloqueado: la sesión vive solo en memoria */ }
   }
 
   function save(token, expiresAt) {
     state.token = token;
+    state.expiresAt = expiresAt ? Date.parse(expiresAt) : 0;
     try {
       if (token) sessionStorage.setItem(STORE_KEY, JSON.stringify({ token: token, expires_at: expiresAt }));
       else sessionStorage.removeItem(STORE_KEY);
@@ -140,6 +147,14 @@
   }
 
   function wait(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+
+  /** Token nuevo para la misma conversación; el anterior deja de servir en el servidor. */
+  function rotateIfOld() {
+    if (!state.token || !(state.expiresAt - Date.now() < ROTATE_BEFORE_MS)) return Promise.resolve();
+    return request("POST", "/session/rotate/", {})
+      .then(function (data) { save(data.token, data.expires_at); })
+      .catch(function () { /* si falla, se sigue con el token actual hasta que venza */ });
+  }
 
   function ensureSession() {
     if (state.token) return Promise.resolve();
@@ -313,6 +328,12 @@
     ui.statusText.textContent = value ? "En línea" : "Sin conexión";
   }
 
+  function notifyUnread() {
+    try {
+      window.dispatchEvent(new CustomEvent("bdchatbot:unread", { detail: { id: publicId, count: state.unread } }));
+    } catch (e) { /* navegadores antiguos */ }
+  }
+
   function scroll() { ui.log.scrollTop = ui.log.scrollHeight; }
 
   function addNotice(text, kind) {
@@ -334,6 +355,7 @@
       state.unread += 1;
       ui.badge.textContent = String(state.unread);
       ui.badge.removeAttribute("hidden");
+      notifyUnread();
     }
     scroll();
   }
@@ -389,6 +411,7 @@
     if (open) {
       state.unread = 0;
       ui.badge.setAttribute("hidden", "hidden");
+      notifyUnread();
       setTimeout(function () { try { ui.input.focus(); } catch (e) { /* ignorado */ } }, 50);
       refresh();
     } else if (ownLauncher) {
@@ -513,7 +536,11 @@
         state.config = config;
         build(config);
         expose();
-        if (state.token) refresh().then(function () { schedulePoll(POLL_CLOSED_MS); });
+        if (state.token) {
+          rotateIfOld()
+            .then(refresh)
+            .then(function () { schedulePoll(POLL_CLOSED_MS); });
+        }
       })
       .catch(function (error) {
         // Chatbot inexistente, suspendido u origen no autorizado: la página sigue igual.

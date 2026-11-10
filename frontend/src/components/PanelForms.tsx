@@ -210,6 +210,33 @@ export function BusinessCreateForm({ action }: { action: FormAction }) {
   );
 }
 
+export function BusinessEditForm({
+  action,
+  initial,
+}: {
+  action: FormAction;
+  initial: { name: string; description: string };
+}) {
+  const locale = useLocale();
+  return (
+    <PanelForm action={action} submitLabel={t(locale, "panel.save")} savedLabel={t(locale, "panel.saved")}>
+      {(state) => (
+        <>
+          <label>
+            {t(locale, "common.name")}
+            <input name="name" required maxLength={120} defaultValue={initial.name} />
+            <Errors state={state} name="name" />
+          </label>
+          <label>
+            {t(locale, "panel.description")}
+            <textarea name="description" rows={2} maxLength={1000} defaultValue={initial.description} />
+          </label>
+        </>
+      )}
+    </PanelForm>
+  );
+}
+
 /** Botón que ejecuta una acción del servidor, con confirmación opcional y error visible. */
 export function ActionButton({
   action,

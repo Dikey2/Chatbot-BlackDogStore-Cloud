@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { RoleGate } from "@/components/RoleGate";
 import { PanelNav } from "@/components/PanelNav";
-import { ActionButton, BusinessCreateForm, MemberForm } from "@/components/PanelForms";
+import { ActionButton, BusinessCreateForm, BusinessEditForm, MemberForm } from "@/components/PanelForms";
 import { getPlatformMetrics, listPlatformBusinesses } from "@/lib/business";
 import { t } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
@@ -12,6 +12,7 @@ import {
   createBusinessAction,
   selectBusinessAction,
   setBusinessStateAction,
+  updatePlatformBusinessAction,
 } from "@/app/panel/actions";
 
 export const metadata: Metadata = { title: "Plataforma" };
@@ -92,6 +93,13 @@ async function Platform({ token, page }: { token: string; page: number }) {
                     confirmText={b.is_active ? t(locale, "platform.suspendConfirm", { name: b.name }) : undefined}
                     testId={`state-${b.slug}`}
                   />
+                  <details>
+                    <summary>{t(locale, "platform.edit")}</summary>
+                    <BusinessEditForm
+                      action={updatePlatformBusinessAction.bind(null, b.id)}
+                      initial={{ name: b.name, description: b.description }}
+                    />
+                  </details>
                   <details>
                     <summary>{t(locale, "platform.addAdmin")}</summary>
                     <MemberForm action={addBusinessAdminAction.bind(null, b.id)} allowAdmin={false} />

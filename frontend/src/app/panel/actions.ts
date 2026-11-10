@@ -141,6 +141,20 @@ export async function createBusinessAction(_: PanelFormState, form: FormData): P
   return { saved: true, sentAt: Date.now() };
 }
 
+export async function updatePlatformBusinessAction(
+  id: number,
+  _: PanelFormState,
+  form: FormData,
+): Promise<PanelFormState> {
+  const result = await call(`/api/platform/businesses/${id}/`, "PATCH", {
+    name: text(form, "name"),
+    description: text(form, "description"),
+  });
+  if (!result.ok) return flatten(result.error);
+  refresh();
+  return { saved: true, sentAt: Date.now() };
+}
+
 export async function setBusinessStateAction(id: number, active: boolean): Promise<ActionResult> {
   const result = await call(`/api/platform/businesses/${id}/${active ? "activate" : "suspend"}/`, "POST");
   if (!result.ok) return { ok: false, message: result.error.message };

@@ -13,6 +13,17 @@ export const AUDIT_ACTIONS = [
   "faq_eliminar",
   "conversacion_responder",
   "conversacion_cerrar",
+  "conversacion_derivar",
+  "conversacion_asignar",
+  "negocio_crear",
+  "negocio_editar",
+  "negocio_suspender",
+  "negocio_activar",
+  "chatbot_configurar",
+  "dominio_agregar",
+  "dominio_eliminar",
+  "miembro_agregar",
+  "miembro_eliminar",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export const AUDIT_RESULTS = ["exito", "fallo"] as const;
@@ -28,6 +39,8 @@ export type AuditEvent = {
   source: string;
   detail: string;
   created_at: string;
+  business?: number | null;
+  business_name?: string | null;
 };
 
 export type AuditPage = {
@@ -45,4 +58,14 @@ export function listAudit(
   if (filters.action) query.set("action", filters.action);
   if (filters.result) query.set("result", filters.result);
   return api<AuditPage>(`/api/audit/?${query}`, { token });
+}
+
+/** Auditoría de toda la plataforma (superadministrador). scope "plataforma" = eventos sin negocio. */
+export function listPlatformAudit(
+  token: string,
+  filters: { scope: "todos" | "plataforma"; page: number },
+): Promise<ApiResult<AuditPage>> {
+  const query = new URLSearchParams({ page: String(filters.page) });
+  if (filters.scope === "plataforma") query.set("business", "none");
+  return api<AuditPage>(`/api/platform/audit/?${query}`, { token });
 }

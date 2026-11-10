@@ -36,12 +36,16 @@ export function getLatestConversation(token: string): Promise<ApiResult<Conversa
 }
 
 /** Bandeja del asesor: la API devuelve todas las conversaciones solo a asesor y admin. */
+/** Vista de la bandeja: un estado, o "mias" (las asignadas al asesor, en cualquier estado). */
+export type InboxView = ConversationStatus | "mias";
+
 export function listConversations(
   token: string,
-  status: ConversationStatus,
+  view: InboxView,
   page: number,
 ): Promise<ApiResult<ConversationPage>> {
-  return api<ConversationPage>(`/api/chat/conversations/?status=${status}&page=${page}`, { token });
+  const filter = view === "mias" ? "assigned=me" : `status=${view}`;
+  return api<ConversationPage>(`/api/chat/conversations/?${filter}&page=${page}`, { token });
 }
 
 export function getConversation(token: string, id: number): Promise<ApiResult<ConversationDetail>> {

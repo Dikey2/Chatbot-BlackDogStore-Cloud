@@ -254,6 +254,12 @@ const dictionaries: Record<Locale, Record<string, string>> = {
     "audit.action.dominio_eliminar": "Dominio retirado",
     "audit.action.miembro_agregar": "Miembro agregado",
     "audit.action.miembro_eliminar": "Miembro retirado",
+    "platform.audit": "Auditoría de la plataforma",
+    "platform.auditAll": "Todos los negocios",
+    "platform.auditPlatform": "Solo plataforma (sin negocio)",
+    "platform.business": "Negocio",
+    "advisor.mine": "Asignadas a mí",
+    "platform.edit": "Editar datos",
   },
   en: {
     "app.description": "Academic prototype for automated customer support",
@@ -503,6 +509,12 @@ const dictionaries: Record<Locale, Record<string, string>> = {
     "audit.action.dominio_eliminar": "Domain removed",
     "audit.action.miembro_agregar": "Member added",
     "audit.action.miembro_eliminar": "Member removed",
+    "platform.audit": "Platform audit",
+    "platform.auditAll": "All businesses",
+    "platform.auditPlatform": "Platform only (no business)",
+    "platform.business": "Business",
+    "advisor.mine": "Assigned to me",
+    "platform.edit": "Edit details",
   },
 };
 

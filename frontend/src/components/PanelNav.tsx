@@ -22,6 +22,7 @@ export async function PanelNav({ user, current }: { user: User; current: string 
     { href: "/admin/asesores", label: t(locale, "panel.team"), show: isAdmin },
     { href: "/admin/auditoria", label: t(locale, "home.audit"), show: isAdmin },
     { href: "/plataforma", label: t(locale, "platform.title"), show: user.is_platform_admin === true },
+    { href: "/plataforma/auditoria", label: t(locale, "platform.audit"), show: user.is_platform_admin === true },
   ];
   return (
     <div className="panel-nav">

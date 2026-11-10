@@ -6,14 +6,15 @@ import { Suspense } from "react";
 import { RoleGate } from "@/components/RoleGate";
 import { ActionButton } from "@/components/PanelForms";
 import { PanelNav } from "@/components/PanelNav";
-import { listConversations, STATUS_KEYS, STATUS_LABELS, type ConversationStatus } from "@/lib/chat";
+import { listConversations, STATUS_KEYS, STATUS_LABELS, type ConversationStatus, type InboxView } from "@/lib/chat";
 import { takeConversationAction } from "@/app/panel/actions";
 
 export const metadata: Metadata = { title: "Bandeja del asesor" };
 
 const STATUSES = Object.keys(STATUS_LABELS) as ConversationStatus[];
+const VIEWS: InboxView[] = [...STATUSES, "mias"];
 
-async function Inbox({ token, status, page }: { token: string; status: ConversationStatus; page: number }) {
+async function Inbox({ token, status, page }: { token: string; status: InboxView; page: number }) {
   const locale = await getLocale();
   const result = await listConversations(token, status, page);
   if (!result.ok) {
@@ -77,7 +78,7 @@ async function Inbox({ token, status, page }: { token: string; status: Conversat
 async function AdvisorInbox({ searchParams }: { searchParams: PageProps<"/asesor">["searchParams"] }) {
   const locale = await getLocale();
   const { estado, page } = await searchParams;
-  const status = STATUSES.includes(estado as ConversationStatus) ? (estado as ConversationStatus) : "derivada";
+  const status = VIEWS.includes(estado as InboxView) ? (estado as InboxView) : "derivada";
   const pageNumber = Math.max(1, Number.parseInt(String(page ?? "1"), 10) || 1);
   return (
     <RoleGate
@@ -89,9 +90,9 @@ async function AdvisorInbox({ searchParams }: { searchParams: PageProps<"/asesor
         <>
           <PanelNav user={user} current="/asesor" />
           <nav className="tabs" aria-label="Estado">
-            {STATUSES.map((value) => (
+            {VIEWS.map((value) => (
               <Link key={value} href={`/asesor?estado=${value}`} aria-current={value === status ? "page" : undefined}>
-                {t(locale, STATUS_KEYS[value])}
+                {t(locale, value === "mias" ? "advisor.mine" : STATUS_KEYS[value])}
               </Link>
             ))}
           </nav>
