@@ -5,6 +5,7 @@ from django.test.utils import CaptureQueriesContext
 
 from chat.models import Conversation, Message
 from faqs.models import FAQ
+from tenants.context import default_business
 
 pytestmark = pytest.mark.django_db
 CONVERSATIONS = "/api/chat/conversations/"
@@ -12,12 +13,12 @@ CONVERSATIONS = "/api/chat/conversations/"
 
 def many_conversations(make_user, n=30, status="derivada", prefix="u"):
     users = [make_user(f"{prefix}{i}@example.com") for i in range(n)]
-    return [Conversation.objects.create(user=u, status=status) for u in users]
+    return [Conversation.objects.create(business=default_business(), user=u, status=status) for u in users]
 
 
 def test_page_size_is_configurable_with_upper_limit(api):
     FAQ.objects.bulk_create(
-        FAQ(category="c", question=f"p{i}", answer="r", keywords="k") for i in range(120)
+        FAQ(business=default_business(), category="c", question=f"p{i}", answer="r", keywords="k") for i in range(120)
     )
     assert len(api.get("/api/faqs/").json()["results"]) == 20
     assert len(api.get("/api/faqs/", {"page_size": 5}).json()["results"]) == 5
@@ -50,8 +51,8 @@ def test_unknown_status_is_a_validation_error(asesor_api):
 
 
 def test_faq_search_and_ordering(api):
-    FAQ.objects.create(category="b", question="Horario de tienda", answer="r", keywords="horario")
-    FAQ.objects.create(category="a", question="Garantía", answer="r", keywords="garantía")
+    FAQ.objects.create(business=default_business(), category="b", question="Horario de tienda", answer="r", keywords="horario")
+    FAQ.objects.create(business=default_business(), category="a", question="Garantía", answer="r", keywords="garantía")
     assert [f["question"] for f in api.get("/api/faqs/", {"search": "horario"}).json()["results"]] == [
         "Horario de tienda"
     ]
@@ -71,7 +72,7 @@ def test_inbox_query_count_does_not_grow_with_rows(asesor_api, make_user):
 
 
 def test_conversation_detail_loads_messages_in_one_query(asesor_api, cliente):
-    conversation = Conversation.objects.create(user=cliente)
+    conversation = Conversation.objects.create(business=default_business(), user=cliente)
     Message.objects.bulk_create(
         Message(conversation=conversation, sender="cliente", content=str(i)) for i in range(30)
     )

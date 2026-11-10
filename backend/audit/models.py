@@ -20,11 +20,30 @@ class AuditEvent(models.Model):
         FAQ_ELIMINAR = "faq_eliminar", "FAQ eliminada"
         CONVERSACION_RESPONDER = "conversacion_responder", "Respuesta de asesor"
         CONVERSACION_CERRAR = "conversacion_cerrar", "Conversación cerrada"
+        CONVERSACION_DERIVAR = "conversacion_derivar", "Conversación derivada"
+        CONVERSACION_ASIGNAR = "conversacion_asignar", "Conversación tomada por asesor"
+        NEGOCIO_CREAR = "negocio_crear", "Negocio creado"
+        NEGOCIO_EDITAR = "negocio_editar", "Negocio editado"
+        NEGOCIO_SUSPENDER = "negocio_suspender", "Negocio suspendido"
+        NEGOCIO_ACTIVAR = "negocio_activar", "Negocio activado"
+        CHATBOT_CONFIGURAR = "chatbot_configurar", "Chatbot configurado"
+        DOMINIO_AGREGAR = "dominio_agregar", "Dominio autorizado"
+        DOMINIO_ELIMINAR = "dominio_eliminar", "Dominio retirado"
+        MIEMBRO_AGREGAR = "miembro_agregar", "Miembro agregado"
+        MIEMBRO_ELIMINAR = "miembro_eliminar", "Miembro retirado"
 
     class Result(models.TextChoices):
         EXITO = "exito", "Éxito"
         FALLO = "fallo", "Fallo"
 
+    # Negocio en el que ocurrió. Vacío = evento de plataforma o sin negocio resuelto.
+    business = models.ForeignKey(
+        "tenants.Business",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="audit_events",
+    )
     # SET_NULL: el registro sobrevive aunque se borre el usuario.
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -46,4 +65,5 @@ class AuditEvent(models.Model):
             # Listado del administrador: más recientes primero, con o sin filtro.
             models.Index(fields=["-created_at", "-id"], name="audit_recientes_idx"),
             models.Index(fields=["action", "-created_at"], name="audit_accion_idx"),
+            models.Index(fields=["business", "-created_at", "-id"], name="audit_negocio_idx"),
         ]

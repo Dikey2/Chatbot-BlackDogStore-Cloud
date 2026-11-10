@@ -1,6 +1,7 @@
 import pytest
 
 from faqs.models import FAQ
+from tenants.context import default_business
 
 pytestmark = pytest.mark.django_db
 URL = "/api/faqs/"
@@ -29,7 +30,7 @@ def test_list_is_public_and_paginated(api, faq):
 
 def test_list_pagination_page_size_20(api, db):
     FAQ.objects.bulk_create(
-        FAQ(category="c", question=f"p{i}", answer="r", keywords="k") for i in range(25)
+        FAQ(business=default_business(), category="c", question=f"p{i}", answer="r", keywords="k") for i in range(25)
     )
     first = api.get(URL).json()
     assert (first["count"], len(first["results"])) == (25, 20)
@@ -38,7 +39,7 @@ def test_list_pagination_page_size_20(api, db):
 
 
 def test_list_filters_by_category(api, faq):
-    FAQ.objects.create(category="otra", question="q", answer="a", keywords="k")
+    FAQ.objects.create(business=default_business(), category="otra", question="q", answer="a", keywords="k")
     results = api.get(URL, {"category": "horarios"}).json()["results"]
     assert [r["id"] for r in results] == [faq.id]
 

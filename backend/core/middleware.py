@@ -20,6 +20,17 @@ ALLOWED_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
 ALLOWED_HEADERS = "Authorization, Content-Type"
 PREFLIGHT_MAX_AGE = "600"
 
+# Widget público: cada negocio autoriza sus propios orígenes (BusinessDomain).
+WIDGET_PREFIX = "/api/widget/"
+WIDGET_METHODS = "GET, POST, OPTIONS"
+WIDGET_HEADERS = "Content-Type, X-Visitor-Token"
+
+
+def _widget_public_id(path):
+    if not path.startswith(WIDGET_PREFIX):
+        return None
+    return path[len(WIDGET_PREFIX):].split("/", 1)[0] or None
+
 
 class CorsMiddleware:
     def __init__(self, get_response):
@@ -34,7 +45,15 @@ class CorsMiddleware:
             # Petición del propio sitio (por ejemplo, el panel /admin/ de Django).
             return self.get_response(request)
 
-        if origin not in settings.CORS_ALLOWED_ORIGINS:
+        public_id = _widget_public_id(request.path)
+        if public_id is not None:
+            allowed = self._widget_origin_allowed(public_id, origin)
+            methods, headers = WIDGET_METHODS, WIDGET_HEADERS
+        else:
+            allowed = origin in settings.CORS_ALLOWED_ORIGINS
+            methods, headers = ALLOWED_METHODS, ALLOWED_HEADERS
+
+        if not allowed:
             return JsonResponse(
                 {"error": {"code": "origin_not_allowed", "message": "Origen no permitido."}},
                 status=403,
@@ -42,8 +61,8 @@ class CorsMiddleware:
 
         if request.method == "OPTIONS" and "Access-Control-Request-Method" in request.headers:
             response = HttpResponse(status=204)
-            response["Access-Control-Allow-Methods"] = ALLOWED_METHODS
-            response["Access-Control-Allow-Headers"] = ALLOWED_HEADERS
+            response["Access-Control-Allow-Methods"] = methods
+            response["Access-Control-Allow-Headers"] = headers
             response["Access-Control-Max-Age"] = PREFLIGHT_MAX_AGE
         else:
             response = self.get_response(request)
@@ -55,8 +74,45 @@ class CorsMiddleware:
         return response
 
     @staticmethod
+    def _widget_origin_allowed(public_id, origin):
+        from widget.security import origin_allowed
+
+        try:
+            return origin_allowed(public_id, origin)
+        except Exception:
+            # Sin base de datos no se puede comprobar: se rechaza (la vista daría 503).
+            return False
+
+    @staticmethod
     def _same_origin(origin, request):
         try:
             return urlsplit(origin).netloc == request.get_host()
         except Exception:
             return False
+
+
+class DatabaseUnavailableMiddleware:
+    """PostgreSQL caído fuera de una vista de DRF (por ejemplo, en otro middleware): 503 JSON."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_exception(self, request, exception):
+        from django.db.utils import InterfaceError, OperationalError
+
+        if isinstance(exception, (OperationalError, InterfaceError)):
+            response = JsonResponse(
+                {
+                    "error": {
+                        "code": "database_unavailable",
+                        "message": "La base de datos no está disponible. Inténtelo más tarde.",
+                    }
+                },
+                status=503,
+            )
+            response["Retry-After"] = "10"
+            return response
+        return None

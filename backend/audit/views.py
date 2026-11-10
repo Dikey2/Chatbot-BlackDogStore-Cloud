@@ -2,6 +2,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 
 from core.permissions import IsAdminRole
+from tenants.context import resolve
 
 from .models import AuditEvent
 from .serializers import AuditEventSerializer
@@ -14,7 +15,8 @@ class AuditEventViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAdminRole]
 
     def get_queryset(self):
-        queryset = AuditEvent.objects.select_related("user")
+        # Solo los eventos del negocio del administrador.
+        queryset = AuditEvent.objects.filter(business=resolve(self.request)[0]).select_related("user")
         params = self.request.query_params
         action = params.get("action")
         if action:

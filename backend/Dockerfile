@@ -16,4 +16,4 @@ EXPOSE 8000
 # reseteaba conexiones con 50 usuarios concurrentes; ver docs/PRUEBAS.md.
 # --max-requests recicla cada proceso tras N peticiones (evita que crezca la memoria).
 # --threads permite atender otra petición mientras se espera al chatbot o a PostgreSQL.
-CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn config.wsgi --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-4} --threads ${GUNICORN_THREADS:-1} --timeout 30 --graceful-timeout 20 --max-requests 10000 --max-requests-jitter 1000 --access-logfile -"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn config.wsgi --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-4} --threads ${GUNICORN_THREADS:-1} --timeout 30 --graceful-timeout 20 --max-requests 10000 --max-requests-jitter 1000"]

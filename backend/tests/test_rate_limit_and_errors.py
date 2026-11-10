@@ -31,7 +31,7 @@ def test_anonymous_limit_60_per_minute(api):
 
 def test_chat_limit_30_per_minute_per_user(cliente_api, admin_api):
     answer = {"answer": "r", "category": None, "matched": False, "escalate": True}
-    with patch("chat.views.ask_chatbot", return_value=answer):
+    with patch("chat.conversation.ask_chatbot", return_value=answer):
         statuses = [
             cliente_api.post("/api/chat/messages/", {"message": "hola"}, format="json").status_code
             for _ in range(31)

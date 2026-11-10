@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     "faqs",
     "chat",
     "audit",
+    "tenants",
+    "widget",
 ]
 
 
@@ -62,6 +64,8 @@ INSTALLED_APPS = [
 # ==========================================================
 
 MIDDLEWARE = [
+    # Primero: mide toda la petición y le asigna un request ID (logs JSON).
+    "core.logging.RequestLogMiddleware",
     "django.middleware.security.SecurityMiddleware",
     # CORS con lista explícita de orígenes (core/middleware.py).
     "core.middleware.CorsMiddleware",
@@ -71,6 +75,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "core.middleware.DatabaseUnavailableMiddleware",
 ]
 
 
@@ -262,6 +267,13 @@ REST_FRAMEWORK = {
         "chat": os.environ.get(
             "THROTTLE_CHAT", "30/min"
         ),
+
+        # Widget público: sesiones nuevas por IP, mensajes por visitante y
+        # consultas de historial (sondeo de respuestas del asesor) por IP.
+        "widget_session": os.environ.get("THROTTLE_WIDGET_SESSION", "10/min"),
+        "widget_message": os.environ.get("THROTTLE_WIDGET_MESSAGE", "20/min"),
+        "widget_message_ip": os.environ.get("THROTTLE_WIDGET_MESSAGE_IP", "60/min"),
+        "widget_read": os.environ.get("THROTTLE_WIDGET_READ", "120/min"),
     },
 }
 
@@ -291,6 +303,23 @@ CHATBOT_SERVICE_URL = os.environ.get(
     "CHATBOT_SERVICE_URL",
     "http://chatbot:8000"
 )
+
+
+# ==========================================================
+# PLATAFORMA MULTIEMPRESA Y WIDGET
+# ==========================================================
+
+# Negocio de los clientes registrados del chat original (el piloto).
+DEFAULT_BUSINESS_SLUG = os.environ.get("DEFAULT_BUSINESS_SLUG", "black-dog-store")
+
+# Duración de la sesión anónima de un visitante del widget.
+from datetime import timedelta  # noqa: E402
+
+WIDGET_SESSION_TTL = timedelta(hours=float(os.environ.get("WIDGET_SESSION_TTL_HOURS", "24")))
+# Mensajes máximos por sesión de visitante (control de abuso).
+WIDGET_MAX_MESSAGES_PER_SESSION = int(os.environ.get("WIDGET_MAX_MESSAGES_PER_SESSION", "200"))
+# Orígenes de la propia plataforma que pueden cargar cualquier widget (vista previa del panel).
+WIDGET_PREVIEW_ORIGINS = env_list("WIDGET_PREVIEW_ORIGINS", "")
 
 
 # ==========================================================
@@ -345,3 +374,23 @@ USE_TZ = True
 STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# ==========================================================
+# LOGS ESTRUCTURADOS (JSON a la salida estándar)
+# ==========================================================
+
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"json": {"()": "core.logging.JsonFormatter"}},
+    "handlers": {"stdout": {"class": "logging.StreamHandler", "formatter": "json"}},
+    "root": {"handlers": ["stdout"], "level": LOG_LEVEL},
+    "loggers": {
+        # El log de peticiones propio reemplaza al de Django (que duplicaría cada línea).
+        "django.request": {"handlers": ["stdout"], "level": "ERROR", "propagate": False},
+        "django.server": {"handlers": [], "level": "ERROR", "propagate": False},
+    },
+}

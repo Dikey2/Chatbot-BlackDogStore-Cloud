@@ -79,5 +79,37 @@ class LogoutView(APIView):
 
 
 class MeView(APIView):
+    """Perfil, negocios del usuario y su rol EN el negocio resuelto.
+
+    ``role`` es el rol efectivo en ese negocio ('admin', 'asesor' o 'cliente'),
+    el que usa el panel para decidir qué mostrar. La API vuelve a comprobarlo
+    en cada petición.
+    """
+
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        from tenants.context import is_platform_admin, resolve
+        from tenants.models import Membership
+
+        user = request.user
+        business, role = resolve(request)
+        memberships = [
+            {
+                "business_id": m.business_id,
+                "business_name": m.business.name,
+                "public_id": m.business.public_id,
+                "role": m.role,
+                "is_active": m.business.is_active,
+            }
+            for m in Membership.objects.filter(user=user).select_related("business")
+            .order_by("business__name", "business_id")
+        ]
+        data = UserSerializer(user).data
+        data["role"] = role or "cliente"
+        data["business"] = {
+            "id": business.id,
+            "name": business.name,
+            "public_id": business.public_id,
+        }
+        data["memberships"] = memberships
+        data["is_platform_admin"] = is_platform_admin(user)
+        return Response(data)

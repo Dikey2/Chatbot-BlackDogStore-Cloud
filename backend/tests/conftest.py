@@ -5,6 +5,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from faqs.models import FAQ
+from tenants.context import default_business
+from tenants.models import Membership
 
 PASSWORD = "Clave-ficticia-123"
 
@@ -22,10 +24,17 @@ def api():
 
 @pytest.fixture
 def make_user(db):
-    def _make(email="cliente@example.com", role="cliente", name="Persona Ficticia"):
-        return get_user_model().objects.create_user(
+    def _make(email="cliente@example.com", role="cliente", name="Persona Ficticia", business=None):
+        user = get_user_model().objects.create_user(
             email=email, password=PASSWORD, name=name, role=role
         )
+        # La autoridad es la membresía: un asesor o admin lo es DE un negocio
+        # (por defecto, el piloto que crea la migración).
+        if role in ("admin", "asesor"):
+            Membership.objects.create(
+                user=user, business=business or default_business(), role=role
+            )
+        return user
 
     return _make
 
@@ -58,8 +67,14 @@ def admin_api(make_user):
 
 
 @pytest.fixture
+def pilot(db):
+    return default_business()
+
+
+@pytest.fixture
 def faq(db):
     return FAQ.objects.create(
+        business=default_business(),
         category="horarios",
         question="¿Cuál es el horario?",
         answer="DATO FICTICIO: de 10:00 a 20:00.",

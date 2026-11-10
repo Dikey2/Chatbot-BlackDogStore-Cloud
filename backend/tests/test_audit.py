@@ -9,6 +9,7 @@ from audit.models import AuditEvent
 from chat.models import Conversation
 
 from .conftest import PASSWORD, client_for
+from tenants.context import default_business
 
 pytestmark = pytest.mark.django_db
 AUDIT = "/api/audit/"
@@ -72,7 +73,7 @@ def test_faq_operations_are_recorded(admin_api):
 
 
 def test_advisor_reply_and_close_are_recorded(asesor_api, cliente):
-    conversation = Conversation.objects.create(user=cliente, status="derivada")
+    conversation = Conversation.objects.create(business=default_business(), user=cliente, status="derivada")
     asesor_api.post(f"/api/chat/conversations/{conversation.id}/reply/", {"message": "Hola"}, format="json")
     asesor_api.post(f"/api/chat/conversations/{conversation.id}/close/")
     assert [a for a, _ in actions()] == ["conversacion_responder", "conversacion_cerrar"]
@@ -88,7 +89,7 @@ def test_only_admin_can_read_audit(api, cliente_api, asesor_api, admin_api):
 
 
 def test_audit_is_read_only_through_the_api(admin_api, make_user):
-    event = AuditEvent.objects.create(action="login", result="exito")
+    event = AuditEvent.objects.create(business=default_business(), action="login", result="exito")
     assert admin_api.post(AUDIT, {}, format="json").status_code == 405
     assert admin_api.patch(f"{AUDIT}{event.id}/", {}, format="json").status_code == 405
     assert admin_api.delete(f"{AUDIT}{event.id}/").status_code == 405
@@ -96,8 +97,8 @@ def test_audit_is_read_only_through_the_api(admin_api, make_user):
 
 
 def test_audit_filters_and_validates(admin_api):
-    AuditEvent.objects.create(action="login", result="exito")
-    AuditEvent.objects.create(action="login_fallido", result="fallo")
+    AuditEvent.objects.create(business=default_business(), action="login", result="exito")
+    AuditEvent.objects.create(business=default_business(), action="login_fallido", result="fallo")
     results = admin_api.get(AUDIT, {"result": "fallo"}).json()["results"]
     assert [r["action"] for r in results] == ["login_fallido"]
     results = admin_api.get(AUDIT, {"action": "login"}).json()["results"]
@@ -106,8 +107,8 @@ def test_audit_filters_and_validates(admin_api):
 
 
 def test_audit_newest_first(admin_api):
-    first = AuditEvent.objects.create(action="login", result="exito")
-    second = AuditEvent.objects.create(action="logout", result="exito")
+    first = AuditEvent.objects.create(business=default_business(), action="login", result="exito")
+    second = AuditEvent.objects.create(business=default_business(), action="logout", result="exito")
     ids = [r["id"] for r in admin_api.get(AUDIT).json()["results"]]
     # El propio GET del administrador no genera eventos.
     assert ids == [second.id, first.id]

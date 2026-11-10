@@ -6,6 +6,7 @@
 """
 import logging
 
+from django.db.utils import InterfaceError, OperationalError
 from django.http import JsonResponse
 from rest_framework import exceptions
 from rest_framework.response import Response
@@ -19,6 +20,14 @@ def _body(code, message, **extra):
 
 
 def exception_handler(exc, context):
+    if isinstance(exc, (OperationalError, InterfaceError)):
+        # PostgreSQL caído o sin conexiones: servicio no disponible, no "error interno".
+        logger.error("database_unavailable", extra={"operation": "db", "error_code": "database_unavailable"})
+        return Response(
+            _body("database_unavailable", "La base de datos no está disponible. Inténtelo más tarde."),
+            status=503,
+            headers={"Retry-After": "10"},
+        )
     response = drf_exception_handler(exc, context)
     if response is None:
         # Error no previsto: se registra completo y el cliente no ve detalles internos.
@@ -37,6 +46,11 @@ def exception_handler(exc, context):
             detail = "Recurso no encontrado."
         response.data = _body(code, str(detail))
     return response
+
+
+def handler500(request, *args, **kwargs):
+    """Errores fuera de DRF: JSON sin detalles internos."""
+    return JsonResponse(_body("server_error", "Error interno del servidor."), status=500)
 
 
 def api_not_found(request, *args, **kwargs):
