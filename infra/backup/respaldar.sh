@@ -22,8 +22,8 @@ mkdir -p "$BACKUP_DIR"
 if [ "${1:-}" = "--neon" ]; then
   : "${NEON_DATABASE_URL:?Defina NEON_DATABASE_URL (no se guarda en el repositorio)}"
   FILE="$BACKUP_DIR/neon_${STAMP}.dump"
-  # pg_dump 17 en un contenedor temporal; la URL viaja como variable, no como argumento visible.
-  docker run --rm -e NEON_DATABASE_URL postgres:17-alpine \
+  # pg_dump 18 (Neon usa PostgreSQL 18) en un contenedor temporal; la URL viaja como variable.
+  docker run --rm -e NEON_DATABASE_URL postgres:18-alpine \
     sh -c 'pg_dump --format=custom --no-owner --no-privileges "$NEON_DATABASE_URL"' > "$FILE"
   PREFIX=neon
 else
@@ -36,7 +36,7 @@ else
 fi
 
 # Integridad: el archivo debe poder leerse completo como respaldo de PostgreSQL.
-docker run --rm -i postgres:17-alpine pg_restore --list < "$FILE" > /dev/null
+docker run --rm -i postgres:18-alpine pg_restore --list < "$FILE" > /dev/null
 ( cd "$BACKUP_DIR" && shasum -a 256 "$(basename "$FILE")" > "$(basename "$FILE").sha256" )
 
 echo "Respaldo: $FILE ($(du -h "$FILE" | cut -f1))"

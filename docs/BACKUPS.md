@@ -5,7 +5,7 @@
 | Paso | Comando | Qué hace |
 |---|---|---|
 | Respaldo local | `infra/backup/respaldar.sh` | `pg_dump` en formato *custom* desde el contenedor `db` |
-| Respaldo de Neon | `NEON_DATABASE_URL=… infra/backup/respaldar.sh --neon` | Lo mismo contra Neon, con `pg_dump` 17 en un contenedor temporal |
+| Respaldo de Neon | `NEON_DATABASE_URL=… infra/backup/respaldar.sh --neon` | Lo mismo contra Neon, con `pg_dump` 18 en un contenedor temporal (Neon usa PostgreSQL 18) |
 | Prueba de restauración | `infra/backup/restaurar-prueba.sh backups/<archivo>.dump` | Restaura en una base temporal aislada, compara filas y la elimina |
 
 ### Respaldo
