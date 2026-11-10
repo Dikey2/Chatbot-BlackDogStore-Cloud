@@ -4,7 +4,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { RoleGate } from "@/components/RoleGate";
-import { listConversations, STATUS_LABELS, type ConversationStatus } from "@/lib/chat";
+import { ActionButton } from "@/components/PanelForms";
+import { PanelNav } from "@/components/PanelNav";
+import { listConversations, STATUS_KEYS, STATUS_LABELS, type ConversationStatus } from "@/lib/chat";
+import { takeConversationAction } from "@/app/panel/actions";
 
 export const metadata: Metadata = { title: "Bandeja del asesor" };
 
@@ -31,6 +34,8 @@ async function Inbox({ token, status, page }: { token: string; status: Conversat
             <tr>
               <th>{t(locale, "advisor.number")}</th>
               <th>{t(locale, "common.client")}</th>
+              <th>{t(locale, "advisor.channel")}</th>
+              <th>{t(locale, "advisor.assigned")}</th>
               <th>{t(locale, "advisor.start")}</th>
               <th>{t(locale, "common.actions")}</th>
             </tr>
@@ -40,9 +45,18 @@ async function Inbox({ token, status, page }: { token: string; status: Conversat
               <tr key={conversation.id}>
                 <td>{conversation.id}</td>
                 <td>{conversation.user_name}</td>
+                <td>{conversation.channel === "widget" ? "Widget" : t(locale, "advisor.platform")}</td>
+                <td>{conversation.assigned_to_name ?? <span className="muted">—</span>}</td>
                 <td>{new Intl.DateTimeFormat(locale === "en" ? "en-US" : "es-PE", { dateStyle: "short", timeStyle: "short", timeZone: "America/Lima" }).format(new Date(conversation.created_at))}</td>
-                <td>
+                <td className="cell-actions">
                   <Link href={`/asesor/${conversation.id}`}>{t(locale, "advisor.view")}</Link>
+                  {(conversation.status === "derivada" || conversation.status === "abierta") && (
+                    <ActionButton
+                      action={takeConversationAction.bind(null, conversation.id)}
+                      label={t(locale, "advisor.take")}
+                      testId={`take-${conversation.id}`}
+                    />
+                  )}
                 </td>
               </tr>
             ))}
@@ -71,12 +85,13 @@ async function AdvisorInbox({ searchParams }: { searchParams: PageProps<"/asesor
       forbiddenMessage={t(locale, "advisor.forbidden")}
       retryHref="/asesor"
     >
-      {async (token) => (
+      {async (token, user) => (
         <>
+          <PanelNav user={user} current="/asesor" />
           <nav className="tabs" aria-label="Estado">
             {STATUSES.map((value) => (
               <Link key={value} href={`/asesor?estado=${value}`} aria-current={value === status ? "page" : undefined}>
-                {t(locale, value === "derivada" ? "advisor.escalated" : value === "abierta" ? "advisor.open" : "advisor.closed")}
+                {t(locale, STATUS_KEYS[value])}
               </Link>
             ))}
           </nav>

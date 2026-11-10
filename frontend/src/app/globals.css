@@ -295,3 +295,84 @@ button.danger {
 .down h2 {
   margin-top: 0;
 }
+
+
+/* ---------- Panel multiempresa ---------- */
+.panel-nav {
+  margin-bottom: 1.5rem;
+}
+.business-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+select {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+}
+.metrics {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+.metrics li {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+}
+.metrics strong {
+  font-size: 1.6rem;
+}
+.panel-form {
+  max-width: 36rem;
+}
+.panel-form fieldset {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+.panel-form input[type="color"] {
+  width: 4rem;
+  height: 2.5rem;
+  padding: 0.2rem;
+}
+.snippet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.snippet pre {
+  flex: 1 1 20rem;
+  min-width: 0;
+  overflow-x: auto;
+  margin: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+.cell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.action-button {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}

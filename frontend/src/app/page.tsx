@@ -68,6 +68,12 @@ export default async function Home() {
         <Link href="/registro">
           {t(locale, "home.register")}
         </Link>
+        <Link href="/panel">
+          {t(locale, "panel.title")}
+        </Link>
+        <Link href="/plataforma">
+          {t(locale, "platform.title")}
+        </Link>
         <Link href="/admin/faqs">
           {t(locale, "home.faq")}
         </Link>

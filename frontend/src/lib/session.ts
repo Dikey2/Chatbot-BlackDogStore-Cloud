@@ -6,7 +6,24 @@ const COOKIE_NAME = "session";
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 8;
 const EXPIRED_LOGIN_PATH = "/login?motivo=expirada";
 
-export type User = { id: number; name: string; email: string; role: string };
+export type Membership = {
+  business_id: number;
+  business_name: string;
+  public_id: string;
+  role: "admin" | "asesor";
+  is_active: boolean;
+};
+
+/** `role` es el rol EN el negocio resuelto por Django ('admin', 'asesor' o 'cliente'). */
+export type User = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  business?: { id: number; name: string; public_id: string };
+  memberships?: Membership[];
+  is_platform_admin?: boolean;
+};
 
 export async function getToken(): Promise<string | undefined> {
   return (await cookies()).get(COOKIE_NAME)?.value;

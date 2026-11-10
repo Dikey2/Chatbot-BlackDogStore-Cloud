@@ -1,9 +1,15 @@
 import "server-only";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 // URL de la API vista desde el servidor de Next.js (red interna de Docker).
-// El navegador nunca llama a la API directamente.
+// El navegador nunca llama a la API directamente (salvo el widget público).
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
+
+/** URL pública de la API: la que usa el widget instalado en webs de terceros. */
+export const API_PUBLIC_URL = (process.env.API_PUBLIC_URL ?? "http://localhost:8000").replace(/\/+$/, "");
+
+/** Cookie con el negocio elegido en el panel. Solo SELECCIONA: Django decide si el usuario pertenece. */
+export const BUSINESS_COOKIE = "negocio";
 
 export type ApiError = {
   code: string;
@@ -31,7 +37,11 @@ export async function api<T>(
 ): Promise<ApiResult<T>> {
   const requestHeaders: Record<string, string> = {};
   if (options.body !== undefined) requestHeaders["Content-Type"] = "application/json";
-  if (options.token) requestHeaders["Authorization"] = `Token ${options.token}`;
+  if (options.token) {
+    requestHeaders["Authorization"] = `Token ${options.token}`;
+    const business = (await cookies()).get(BUSINESS_COOKIE)?.value;
+    if (business && /^\d+$/.test(business)) requestHeaders["X-Business-Id"] = business;
+  }
   // Los rate limits de la API se aplican por IP del visitante, no del servidor web.
   const forwardedFor = (await headers()).get("x-forwarded-for");
   if (forwardedFor) requestHeaders["X-Forwarded-For"] = forwardedFor;

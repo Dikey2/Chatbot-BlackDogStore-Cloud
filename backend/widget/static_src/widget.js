@@ -187,6 +187,7 @@
       ".launcher{position:fixed;" + side + "bottom:" + offsetBottom + "px;width:58px;height:58px;border-radius:50%;border:0;cursor:pointer;",
       "background:" + primary + ";color:" + fg + ";box-shadow:0 8px 24px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:2147483000;transition:transform .2s;}",
       ".launcher:hover{transform:scale(1.05);}",
+      "[hidden]{display:none!important;}",
       ".launcher:focus-visible,button:focus-visible,textarea:focus-visible{outline:3px solid #2563eb;outline-offset:2px;}",
       ".badge{position:absolute;top:-2px;right:-2px;min-width:20px;height:20px;border-radius:10px;background:#dc2626;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;}",
       ".panel{position:fixed;" + side + "bottom:" + (offsetBottom + 70) + "px;width:370px;max-width:calc(100vw - 24px);height:560px;max-height:calc(100vh - " + (offsetBottom + 90) + "px);",

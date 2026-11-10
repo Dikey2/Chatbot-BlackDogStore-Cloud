@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AdvisorReply } from "@/components/AdvisorReply";
 import { RoleGate } from "@/components/RoleGate";
-import { getConversation } from "@/lib/chat";
+import { getConversation, STATUS_KEYS } from "@/lib/chat";
 import { replyAction } from "../actions";
 
 export const metadata: Metadata = { title: "Conversación" };
@@ -26,7 +26,8 @@ async function ConversationView({ token, id }: { token: string; id: number }) {
   return (
     <>
       <p>
-        {t(locale, "common.client")}: <strong>{conversation.user_name}</strong> · {t(locale, "common.status")}: {" "}
+        {t(locale, "common.client")}: <strong>{conversation.user_name}</strong>
+        {conversation.channel === "widget" ? " (widget)" : ""} · {t(locale, "common.status")}: {" "}
         <span data-testid="conversation-status">{conversation.status}</span>
       </p>
       <ol className="messages" data-testid="messages">
@@ -46,7 +47,7 @@ async function ConversationView({ token, id }: { token: string; id: number }) {
       )}
       <p>
         <Link href={`/asesor?estado=${conversation.status}`}>
-          {t(locale, "advisor.backTo", { status: t(locale, conversation.status === "derivada" ? "advisor.escalated" : conversation.status === "abierta" ? "advisor.open" : "advisor.closed").toLowerCase() })}
+          {t(locale, "advisor.backTo", { status: t(locale, STATUS_KEYS[conversation.status]).toLowerCase() })}
         </Link>
       </p>
     </>

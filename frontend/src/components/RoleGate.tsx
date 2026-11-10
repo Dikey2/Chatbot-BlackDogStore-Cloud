@@ -25,7 +25,10 @@ export async function RoleGate({
   if (session.state === "unavailable") {
     return <ServiceUnavailable reason={session.reason} retryHref={retryHref} />;
   }
-  if (!roles.includes(session.user.role)) {
+  // "plataforma" = superadministrador de la plataforma (no depende del negocio elegido).
+  const allowed =
+    roles.includes(session.user.role) || (roles.includes("plataforma") && session.user.is_platform_admin === true);
+  if (!allowed) {
     return (
       <div data-testid="role-forbidden">
         <p className="error" role="alert">

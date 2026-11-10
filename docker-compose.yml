@@ -81,6 +81,8 @@ services:
     build: ./frontend
     environment:
       API_INTERNAL_URL: http://backend:8000
+      # URL de la API que usa el widget desde el navegador (código de instalación y vista previa).
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:8000}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
