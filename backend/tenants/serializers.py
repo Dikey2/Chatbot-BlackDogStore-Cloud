@@ -20,9 +20,17 @@ class ChatbotConfigSerializer(serializers.ModelSerializer):
         fields = [
             "assistant_name", "welcome_message", "no_answer_message", "handoff_message",
             "handoff_keywords", "schedule", "contact_info", "primary_color", "is_active",
-            "updated_at",
+            "catalog_api_url", "catalog_page_url", "updated_at",
         ]
         read_only_fields = ["updated_at"]
+
+    def validate_catalog_api_url(self, value):
+        from chat.catalog import CatalogUrlNotAllowed, validate_catalog_url
+
+        try:
+            return validate_catalog_url(value)
+        except CatalogUrlNotAllowed as exc:
+            raise serializers.ValidationError(str(exc)) from exc
 
 
 class BusinessSerializer(serializers.ModelSerializer):

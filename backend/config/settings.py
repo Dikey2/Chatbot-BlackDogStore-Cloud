@@ -318,6 +318,8 @@ from datetime import timedelta  # noqa: E402
 WIDGET_SESSION_TTL = timedelta(hours=float(os.environ.get("WIDGET_SESSION_TTL_HOURS", "24")))
 # Mensajes máximos por sesión de visitante (control de abuso).
 WIDGET_MAX_MESSAGES_PER_SESSION = int(os.environ.get("WIDGET_MAX_MESSAGES_PER_SESSION", "200"))
+# Hosts que el conector de catálogo puede consultar (lista blanca, sin comodines).
+CATALOG_ALLOWED_HOSTS = [h.lower() for h in env_list("CATALOG_ALLOWED_HOSTS", "")]
 # Orígenes de la propia plataforma que pueden cargar cualquier widget (vista previa del panel).
 WIDGET_PREVIEW_ORIGINS = env_list("WIDGET_PREVIEW_ORIGINS", "")
 

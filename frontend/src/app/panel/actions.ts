@@ -84,6 +84,8 @@ export async function updateBusinessAction(_: PanelFormState, form: FormData): P
       contact_info: text(form, "contact_info"),
       primary_color: text(form, "primary_color"),
       is_active: form.get("is_active") === "on",
+      catalog_api_url: text(form, "catalog_api_url"),
+      catalog_page_url: text(form, "catalog_page_url"),
     },
   };
   const result = await call("/api/business/", "PATCH", body);

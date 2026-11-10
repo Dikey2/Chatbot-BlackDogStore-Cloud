@@ -260,6 +260,10 @@ const dictionaries: Record<Locale, Record<string, string>> = {
     "platform.business": "Negocio",
     "advisor.mine": "Asignadas a mí",
     "platform.edit": "Editar datos",
+    "panel.catalog": "Catálogo de productos",
+    "panel.catalogHelp": "Opcional. Si conectas la API de productos de tu tienda, el asistente responde precio y stock reales en el momento. Solo se aceptan hosts autorizados por la plataforma.",
+    "panel.catalogApi": "API del catálogo (URL)",
+    "panel.catalogPage": "Página pública del catálogo (enlace para el visitante)",
   },
   en: {
     "app.description": "Academic prototype for automated customer support",
@@ -515,6 +519,10 @@ const dictionaries: Record<Locale, Record<string, string>> = {
     "platform.business": "Business",
     "advisor.mine": "Assigned to me",
     "platform.edit": "Edit details",
+    "panel.catalog": "Product catalog",
+    "panel.catalogHelp": "Optional. If you connect your store's product API, the assistant answers live prices and stock. Only hosts authorized by the platform are accepted.",
+    "panel.catalogApi": "Catalog API (URL)",
+    "panel.catalogPage": "Public catalog page (link for visitors)",
   },
 };
 

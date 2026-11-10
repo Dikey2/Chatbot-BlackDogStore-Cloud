@@ -7,6 +7,7 @@ import logging
 
 from django.db import transaction
 
+from . import catalog
 from .models import Conversation, Message
 from .services import ChatbotUnavailable, ask_chatbot, bot_settings_for, knowledge_for
 
@@ -40,6 +41,11 @@ def take_turn(business, text, *, conversation=None, user=None, visitor=None, fal
             extra={"operation": "chat.fallback", "business_id": business.id, "error_code": exc.default_code},
         )
 
+    if not degraded and not reply.get("matched"):
+        # Sin FAQ ni regla: si el negocio conectó su catálogo, se responde con sus
+        # productos (precio y stock reales en este momento) en vez de derivar.
+        reply = _from_catalog(business, text) or reply
+
     with transaction.atomic():
         if conversation is None:
             conversation = Conversation.objects.create(business=business, user=user, visitor=visitor)
@@ -71,6 +77,28 @@ def take_turn(business, text, *, conversation=None, user=None, visitor=None, fal
         "category": reply.get("category"),
         "escalated": bool(reply.get("escalate")),
         "degraded": degraded,
+    }
+
+
+def _from_catalog(business, text):
+    config = getattr(business, "chatbot", None)
+    url = getattr(config, "catalog_api_url", "") if config is not None else ""
+    if not url:
+        return None
+    result = catalog.search(url, text)
+    if not result or not result["products"]:
+        return None
+    logger.info(
+        "catalog_answer",
+        extra={"operation": "catalog.answer", "business_id": business.id, "results": result["total"]},
+    )
+    return {
+        "answer": catalog.format_answer(
+            business.name, result["products"], result["total"], config.catalog_page_url
+        ),
+        "category": "catalogo",
+        "matched": True,
+        "escalate": False,
     }
 
 

@@ -72,6 +72,8 @@ async function Settings({ token }: { token: string }) {
           contact_info: c?.contact_info ?? "",
           primary_color: c?.primary_color ?? "#111111",
           is_active: c?.is_active ?? true,
+          catalog_api_url: c?.catalog_api_url ?? "",
+          catalog_page_url: c?.catalog_page_url ?? "",
         }}
       />
     </>

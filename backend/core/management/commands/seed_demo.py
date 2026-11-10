@@ -116,6 +116,9 @@ class Command(BaseCommand):
             Membership.objects.update_or_create(user=user, business=business, defaults={"role": role})
 
         for business, faqs in ((pilot, PILOT_FAQS), (second, SECOND_FAQS)):
+            if business.faqs.exclude(question__in=[f[1] for f in faqs]).exists():
+                # El negocio ya cargó sus propias FAQ: no se vuelven a poner las ficticias.
+                continue
             for category, question, answer, keywords in faqs:
                 FAQ.objects.update_or_create(
                     business=business,

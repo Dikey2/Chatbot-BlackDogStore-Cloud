@@ -11,6 +11,8 @@ export type ChatbotConfig = {
   contact_info: string;
   primary_color: string;
   is_active: boolean;
+  catalog_api_url: string;
+  catalog_page_url: string;
   updated_at?: string;
 };
 

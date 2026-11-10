@@ -81,6 +81,8 @@ export type ConfigValues = {
   contact_info: string;
   primary_color: string;
   is_active: boolean;
+  catalog_api_url: string;
+  catalog_page_url: string;
 };
 
 export function ChatbotConfigForm({ action, initial }: { action: FormAction; initial: ConfigValues }) {
@@ -127,6 +129,14 @@ export function ChatbotConfigForm({ action, initial }: { action: FormAction; ini
               <input type="checkbox" name="is_active" defaultChecked={initial.is_active} />
               {t(locale, "panel.chatbotActive")}
             </label>
+          </fieldset>
+          <fieldset>
+            <legend>{t(locale, "panel.catalog")}</legend>
+            <p className="muted">{t(locale, "panel.catalogHelp")}</p>
+            {field("catalog_api_url", t(locale, "panel.catalogApi"), { max: 500 })}
+            <Errors state={state} name="chatbot.catalog_api_url" />
+            {field("catalog_page_url", t(locale, "panel.catalogPage"), { max: 500 })}
+            <Errors state={state} name="chatbot.catalog_page_url" />
           </fieldset>
         </>
       )}

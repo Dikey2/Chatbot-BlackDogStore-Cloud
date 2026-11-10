@@ -135,6 +135,11 @@ class ChatbotConfig(models.Model):
         "color principal", max_length=7, default="#111111", validators=[HEX_COLOR]
     )
     is_active = models.BooleanField("chatbot activo", default=True)
+    # Conector de catálogo (chat.catalog): API de productos del negocio, consultada
+    # solo si su host está en CATALOG_ALLOWED_HOSTS. Vacío = el bot no consulta productos.
+    catalog_api_url = models.URLField("API del catálogo", max_length=500, blank=True)
+    # Enlace público al catálogo que el bot muestra al visitante.
+    catalog_page_url = models.URLField("página del catálogo", max_length=500, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def handoff_keyword_list(self):
