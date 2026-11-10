@@ -7,8 +7,11 @@ class FAQ(models.Model):
     Pertenece a UN negocio: el chatbot de un negocio nunca usa FAQ de otro.
     """
 
+    # null=True SOLO en la base (compatibilidad hacia atrás): la versión anterior,
+    # que no conoce este campo, puede seguir creando FAQ durante un rollback. La
+    # aplicación siempre lo completa y `asignar_negocio_piloto` repara los huérfanos.
     business = models.ForeignKey(
-        "tenants.Business", on_delete=models.CASCADE, related_name="faqs"
+        "tenants.Business", on_delete=models.CASCADE, related_name="faqs", null=True
     )
     category = models.CharField("categoría", max_length=50, db_index=True)
     question = models.CharField("pregunta", max_length=255)

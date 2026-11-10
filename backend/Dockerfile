@@ -21,4 +21,4 @@ EXPOSE 8000
 # a ~35 req/s durante ~45 s. La memoria se mantuvo estable (~212 MiB), así que el
 # reciclaje se espacia (20000 ± 4000) para que los procesos no coincidan.
 # --threads permite atender otra petición mientras se espera al chatbot o a PostgreSQL.
-CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn config.wsgi --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-4} --threads ${GUNICORN_THREADS:-1} --timeout 30 --graceful-timeout 20 --preload --max-requests 20000 --max-requests-jitter 4000"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && (python manage.py asignar_negocio_piloto || true) && exec gunicorn config.wsgi --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-4} --threads ${GUNICORN_THREADS:-1} --timeout 30 --graceful-timeout 20 --preload --max-requests 20000 --max-requests-jitter 4000"]

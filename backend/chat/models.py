@@ -9,8 +9,9 @@ class Conversation(models.Model):
         ATENDIENDO = "atendiendo", "En atención"
         CERRADA = "cerrada", "Cerrada"
 
+    # null=True solo en la base, por compatibilidad hacia atrás (ver faqs.models.FAQ.business).
     business = models.ForeignKey(
-        "tenants.Business", on_delete=models.CASCADE, related_name="conversations"
+        "tenants.Business", on_delete=models.CASCADE, related_name="conversations", null=True
     )
     # Cliente registrado (chat de la plataforma) o visitante anónimo del widget.
     user = models.ForeignKey(

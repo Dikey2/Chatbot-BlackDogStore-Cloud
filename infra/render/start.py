@@ -79,6 +79,19 @@ def run_migrations():
 
     del PROCESSES["migrations"]
 
+    # Idempotente: asigna al negocio piloto lo creado sin negocio durante un
+    # rollback a la versión anterior. Si falla, la API arranca igual.
+    repair = start_process(
+        "asignar_negocio_piloto",
+        [sys.executable, "manage.py", "asignar_negocio_piloto"],
+        BACKEND_DIR,
+    )
+    while repair.poll() is None:
+        if STOPPING:
+            return False
+        time.sleep(0.2)
+    del PROCESSES["asignar_negocio_piloto"]
+
     print("[OK] Migraciones completadas", flush=True)
     return True
 
