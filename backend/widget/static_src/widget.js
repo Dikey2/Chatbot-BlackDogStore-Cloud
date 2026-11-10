@@ -615,9 +615,21 @@
   }
 
   // ------------------------------------------------------------------ arranque
+  // Un servidor que estaba dormido (p. ej. un plan gratuito) puede tardar ~30 s en
+  // responder. La configuración se reintenta con esperas crecientes ante errores de
+  // red, timeout o 5xx; nunca ante 403/404 (origen no autorizado o chatbot inexistente).
+  var CONFIG_RETRY_DELAYS_MS = [3000, 8000, 15000];
+
+  function loadConfig(attempt) {
+    return request("GET", "/config/").catch(function (error) {
+      var transient = !(error instanceof ApiError) || error.status === 0 || error.status >= 500;
+      if (!transient || attempt >= CONFIG_RETRY_DELAYS_MS.length) throw error;
+      return wait(CONFIG_RETRY_DELAYS_MS[attempt]).then(function () { return loadConfig(attempt + 1); });
+    });
+  }
   function start() {
     load();
-    request("GET", "/config/")
+    loadConfig(0)
       .then(function (config) {
         state.config = config;
         build(config);

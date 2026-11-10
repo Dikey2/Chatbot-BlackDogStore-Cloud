@@ -296,3 +296,12 @@ def test_widget_script_supports_light_dark_and_host_themes(api):
     assert 'getAttribute("data-theme")' in body
     assert ":host([data-mode=dark])" in body
     assert "MutationObserver" in body and "setTheme" in body
+
+
+
+def test_widget_script_retries_config_on_transient_errors_only(api):
+    body = api.get("/widget.js").content.decode()
+    # Servidor dormido o desplegando: reintenta la configuración con esperas crecientes,
+    # pero nunca ante 403/404 (origen no autorizado o chatbot inexistente).
+    assert "CONFIG_RETRY_DELAYS_MS = [3000, 8000, 15000]" in body
+    assert "error.status >= 500" in body and "loadConfig(attempt + 1)" in body
