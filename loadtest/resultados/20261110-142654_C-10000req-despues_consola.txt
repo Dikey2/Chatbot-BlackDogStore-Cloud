@@ -1,0 +1,54 @@
+ Container blackdog-saas-locust-run-e4e652f54bac Creating 
+ Container blackdog-saas-locust-run-e4e652f54bac Created 
+[2026-11-10 19:26:59,544] b33c41ff3a81/INFO/locust.main: Starting Locust 2.46.7
+[2026-11-10 19:26:59,546] b33c41ff3a81/INFO/locust.main: Run time limit set to 1800 seconds
+[2026-11-10 19:26:59,548] b33c41ff3a81/INFO/locust.runners: Ramping to 100 users at a rate of 20.00 per second
+[2026-11-10 19:27:03,559] b33c41ff3a81/INFO/locust.runners: All users spawned: {"Lectura": 34, "LecturaAsesor": 33, "Widget": 33} (100 total users)
+[2026-11-10 19:27:42,076] b33c41ff3a81/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-65" at 0xffff6e4e20c0: _run>
+[2026-11-10 19:27:42,164] b33c41ff3a81/INFO/locust.main: Shutting down (exit code 0)
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+POST     /api/auth/login/                                                                  67     0(0.00%) |   1041     332    1993   1100 |    1.58        0.00
+GET      /api/chat/conversations/ (propias)                                               706     0(0.00%) |    100       6    1982     21 |   16.60        0.00
+GET      /api/chat/conversations/?status=[estado]&page=[n]                               3298     0(0.00%) |     98       7    1999     21 |   77.54        0.00
+GET      /api/chat/conversations/latest/                                                  750     0(0.00%) |    102       6    1952     18 |   17.63        0.00
+GET      /api/faqs/                                                                      1154     0(0.00%) |     94       5    1983     18 |   27.13        0.00
+GET      /api/health/                                                                     392     0(0.00%) |     79       2    1671     12 |    9.22        0.00
+GET      /api/users/me/                                                                   386     0(0.00%) |     82       6    1915     20 |    9.07        0.00
+GET      /api/widget/[id]/config/                                                          33     0(0.00%) |   1290    1027    1682   1200 |    0.78        0.00
+GET      /api/widget/[id]/conversation/                                                  1823     0(0.00%) |     85       6    1987     20 |   42.86        0.00
+POST     /api/widget/[id]/messages/                                                      1358     0(0.00%) |    101      13    2026     32 |   31.93        0.00
+POST     /api/widget/[id]/session/                                                         33     0(0.00%) |   1016     317    1346   1100 |    0.78        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                     10000     0(0.00%) |    108       2    2026     22 |  235.10        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+POST     /api/auth/login/                                                                     1100   1200   1400   1400   1700   1700   1700   2000   2000   2000   2000     67
+GET      /api/chat/conversations/ (propias)                                                     21     34     56     78    220    500    930   1600   2000   2000   2000    706
+GET      /api/chat/conversations/?status=[estado]&page=[n]                                      21     35     58     78    220    490   1100   1200   2000   2000   2000   3298
+GET      /api/chat/conversations/latest/                                                        18     31     49     73    250    660    990   1600   2000   2000   2000    750
+GET      /api/faqs/                                                                             18     34     58     74    230    520    960   1100   1900   2000   2000   1154
+GET      /api/health/                                                                           12     25     50     69    150    540    810   1100   1700   1700   1700    392
+GET      /api/users/me/                                                                         20     32     59     69    140    430    790   1000   1900   1900   1900    386
+GET      /api/widget/[id]/config/                                                             1200   1400   1400   1700   1700   1700   1700   1700   1700   1700   1700     33
+GET      /api/widget/[id]/conversation/                                                         20     33     54     69    170    440    880   1100   2000   2000   2000   1823
+POST     /api/widget/[id]/messages/                                                             32     47     65     85    190    460    970   1600   2000   2000   2000   1358
+POST     /api/widget/[id]/session/                                                            1100   1200   1200   1300   1300   1300   1300   1300   1300   1300   1300     33
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                             22     37     60     80    250    600   1100   1400   2000   2000   2000  10000
+
+Traceback (most recent call last):
+  File "src/gevent/greenlet.py", line 912, in gevent._gevent_cgreenlet.Greenlet.run
+  File "/opt/venv/lib/python3.13/site-packages/locust/stats.py", line 1170, in stats_writer
+    self.requests_csv_filehandle.seek(requests_csv_data_start)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-11-10T19:27:42Z <Greenlet at 0xffff8f912fc0: <bound method StatsCSVFileWriter.stats_writer of <locust.stats.StatsCSVFileWriter object at 0xffff8f920d70>>> failed with ValueError
+
+[2026-11-10 19:27:42,169] b33c41ff3a81/CRITICAL/locust.main: Unhandled exception in greenlet: <Greenlet at 0xffff8f912fc0: <bound method StatsCSVFileWriter.stats_writer of <locust.stats.StatsCSVFileWriter object at 0xffff8f920d70>>>
+Traceback (most recent call last):
+  File "src/gevent/greenlet.py", line 912, in gevent._gevent_cgreenlet.Greenlet.run
+  File "/opt/venv/lib/python3.13/site-packages/locust/stats.py", line 1170, in stats_writer
+    self.requests_csv_filehandle.seek(requests_csv_data_start)
+    ^^^^^^^

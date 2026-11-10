@@ -1,0 +1,46 @@
+ Container blackdog-saas-locust-run-902626511110 Creating 
+ Container blackdog-saas-locust-run-902626511110 Created 
+[2026-11-10 19:28:00,834] e7301ee98eee/INFO/locust.main: Starting Locust 2.46.7
+[2026-11-10 19:28:00,836] e7301ee98eee/INFO/locust.main: Run time limit set to 1800 seconds
+[2026-11-10 19:28:00,837] e7301ee98eee/INFO/locust.runners: Ramping to 100 users at a rate of 20.00 per second
+[2026-11-10 19:28:04,845] e7301ee98eee/INFO/locust.runners: All users spawned: {"Lectura": 34, "LecturaAsesor": 33, "Widget": 33} (100 total users)
+[2026-11-10 19:29:11,380] e7301ee98eee/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-13" at 0xffffb5dd4fe0: _run>
+[2026-11-10 19:29:11,381] e7301ee98eee/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-13" at 0xffffb5dd4fe0: _run>
+[2026-11-10 19:29:11,382] e7301ee98eee/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-13" at 0xffffb5dd4fe0: _run>
+[2026-11-10 19:29:11,383] e7301ee98eee/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-13" at 0xffffb5dd4fe0: _run>
+[2026-11-10 19:29:11,383] e7301ee98eee/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-60" at 0xffffb43ea8e0: _run>
+[2026-11-10 19:29:11,383] e7301ee98eee/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-13" at 0xffffb5dd4fe0: _run>
+[2026-11-10 19:29:11,465] e7301ee98eee/INFO/locust.main: Shutting down (exit code 0)
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+POST     /api/auth/login/                                                                  67     0(0.00%) |    565     228    1264    520 |    0.95        0.00
+GET      /api/chat/conversations/ (propias)                                              1466     0(0.00%) |     42       5     957     13 |   20.78        0.00
+GET      /api/chat/conversations/?status=[estado]&page=[n]                               6610     0(0.00%) |     41       6     973     15 |   93.69        0.00
+GET      /api/chat/conversations/latest/                                                 1524     0(0.00%) |     42       5     963     13 |   21.60        0.00
+GET      /api/faqs/                                                                      2284     0(0.00%) |     39       4     963     12 |   32.37        0.00
+GET      /api/health/                                                                     773     0(0.00%) |     40       2     953      8 |   10.96        0.00
+GET      /api/users/me/                                                                   767     0(0.00%) |     33       5     917     12 |   10.87        0.00
+GET      /api/widget/[id]/config/                                                          33     0(0.00%) |    790     684     925    750 |    0.47        0.00
+GET      /api/widget/[id]/conversation/                                                  3607     0(0.00%) |     39       5     957     13 |   51.13        0.00
+POST     /api/widget/[id]/messages/                                                      2836     0(0.00%) |     50      10     979     23 |   40.20        0.00
+POST     /api/widget/[id]/session/                                                         33     0(0.00%) |    203      62     413    140 |    0.47        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                     20000     0(0.00%) |     45       2    1264     16 |  283.48        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+POST     /api/auth/login/                                                                      520    720    760    820    910    960   1100   1300   1300   1300   1300     67
+GET      /api/chat/conversations/ (propias)                                                     13     21     35     48    100    140    260    650    950    960    960   1466
+GET      /api/chat/conversations/?status=[estado]&page=[n]                                      15     22     36     48     99    140    240    500    950    970    970   6610
+GET      /api/chat/conversations/latest/                                                        13     21     33     47    100    150    250    610    940    960    960   1524
+GET      /api/faqs/                                                                             12     19     30     44     94    140    240    600    960    960    960   2284
+GET      /api/health/                                                                            8     14     25     44    100    150    270    770    950    950    950    773
+GET      /api/users/me/                                                                         12     18     29     42     89    120    200    240    920    920    920    767
+GET      /api/widget/[id]/config/                                                              750    840    850    890    910    920    930    930    930    930    930     33
+GET      /api/widget/[id]/conversation/                                                         13     21     34     48     98    140    230    320    950    960    960   3607
+POST     /api/widget/[id]/messages/                                                             23     31     45     57    110    150    240    560    970    980    980   2836
+POST     /api/widget/[id]/session/                                                             140    290    290    400    400    410    410    410    410    410    410     33
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                             16     24     37     51    110    150    280    660    960   1100   1300  20000
+
