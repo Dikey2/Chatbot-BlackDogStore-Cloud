@@ -82,9 +82,9 @@ def take_turn(business, text, *, conversation=None, user=None, visitor=None, fal
 
 def _from_catalog(business, text):
     config = getattr(business, "chatbot", None)
-    url = getattr(config, "catalog_api_url", "") if config is not None else ""
-    if not url:
+    if config is None or not config.catalog_api_url:
         return None
+    url = config.catalog_api_url
     result = catalog.search(url, text)
     if not result or not result["products"]:
         return None

@@ -20,14 +20,15 @@ from rest_framework import throttling
 
 from .models import RateCounter
 
-_UPSERT = f"""
-INSERT INTO {RateCounter._meta.db_table} (key, window_start, count)
+# Texto fijo (sin formato): los valores viajan como parámetros del driver.
+_UPSERT = """
+INSERT INTO core_ratecounter (key, window_start, count)
 VALUES (%(key)s, %(now)s, 1)
 ON CONFLICT (key) DO UPDATE SET
-    count = CASE WHEN {RateCounter._meta.db_table}.window_start <= %(expired)s
-                 THEN 1 ELSE {RateCounter._meta.db_table}.count + 1 END,
-    window_start = CASE WHEN {RateCounter._meta.db_table}.window_start <= %(expired)s
-                        THEN %(now)s ELSE {RateCounter._meta.db_table}.window_start END
+    count = CASE WHEN core_ratecounter.window_start <= %(expired)s
+                 THEN 1 ELSE core_ratecounter.count + 1 END,
+    window_start = CASE WHEN core_ratecounter.window_start <= %(expired)s
+                        THEN %(now)s ELSE core_ratecounter.window_start END
 RETURNING count, window_start
 """
 

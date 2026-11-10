@@ -23,7 +23,7 @@ export default async function RegisterPage() {
           { name: "email", label: t(locale, "common.email"), type: "email", autoComplete: "email" },
           {
             name: "password",
-            label: t(locale, "common.passwordMin"),
+            label: t(locale, "common.secretFieldMin"),
             type: "password",
             autoComplete: "new-password",
           },

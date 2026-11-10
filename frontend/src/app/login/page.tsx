@@ -34,7 +34,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           { name: "email", label: t(locale, "common.email"), type: "email", autoComplete: "email" },
           {
             name: "password",
-            label: t(locale, "common.password"),
+            label: t(locale, "common.secretField"),
             type: "password",
             autoComplete: "current-password",
           },
