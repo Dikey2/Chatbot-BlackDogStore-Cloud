@@ -53,6 +53,9 @@ INSTALLED_APPS = [
     "core",
     "faqs",
     "chat",
+    "audit",
+    "tenants",
+    "widget",
 ]
 
 
@@ -61,13 +64,18 @@ INSTALLED_APPS = [
 # ==========================================================
 
 MIDDLEWARE = [
+    # Primero: mide toda la petición y le asigna un request ID (logs JSON).
+    "core.logging.RequestLogMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # CORS con lista explícita de orígenes (core/middleware.py).
+    "core.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "core.middleware.DatabaseUnavailableMiddleware",
 ]
 
 
@@ -111,15 +119,16 @@ DATABASES = {
 
         "PASSWORD": os.environ["POSTGRES_PASSWORD"],
 
-        "HOST": os.environ.get(
-            "POSTGRES_HOST", "db"
-        ),
+        # "or": una variable definida pero vacía usa el valor por defecto.
+        "HOST": os.environ.get("POSTGRES_HOST") or "db",
 
-        "PORT": os.environ.get(
-            "POSTGRES_PORT", "5432"
-        ),
+        "PORT": os.environ.get("POSTGRES_PORT") or "5432",
 
-        "CONN_MAX_AGE": 0,
+        # Reutiliza la conexión entre peticiones del mismo proceso: abrir una
+        # conexión nueva (y con SSL hacia Neon) en cada petición es costoso.
+        "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE") or "60"),
+        # Descarta una conexión reutilizada que se haya cortado.
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 
@@ -219,11 +228,18 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated"
     ],
 
+    # 20 por página; ?page_size= hasta 100 (core/pagination.py).
     "DEFAULT_PAGINATION_CLASS": (
-        "rest_framework.pagination.PageNumberPagination"
+        "core.pagination.StandardPagination"
     ),
 
     "PAGE_SIZE": 20,
+
+    # Proxies de confianza delante de la API (Render = 1). Sin definir, DRF usa
+    # la cabecera X-Forwarded-For completa, que un cliente puede alterar.
+    "NUM_PROXIES": (
+        int(os.environ["NUM_PROXIES"]) if os.environ.get("NUM_PROXIES") else None
+    ),
 
     "EXCEPTION_HANDLER": (
         "core.errors.exception_handler"
@@ -231,8 +247,8 @@ REST_FRAMEWORK = {
 
     # Límites de peticiones.
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
+        "core.throttling.AnonRateThrottle",
+        "core.throttling.UserRateThrottle",
     ],
 
     "DEFAULT_THROTTLE_RATES": {
@@ -251,6 +267,13 @@ REST_FRAMEWORK = {
         "chat": os.environ.get(
             "THROTTLE_CHAT", "30/min"
         ),
+
+        # Widget público: sesiones nuevas por IP, mensajes por visitante y
+        # consultas de historial (sondeo de respuestas del asesor) por IP.
+        "widget_session": os.environ.get("THROTTLE_WIDGET_SESSION", "10/min"),
+        "widget_message": os.environ.get("THROTTLE_WIDGET_MESSAGE", "20/min"),
+        "widget_message_ip": os.environ.get("THROTTLE_WIDGET_MESSAGE_IP", "60/min"),
+        "widget_read": os.environ.get("THROTTLE_WIDGET_READ", "120/min"),
     },
 }
 
@@ -283,6 +306,60 @@ CHATBOT_SERVICE_URL = os.environ.get(
 
 
 # ==========================================================
+# PLATAFORMA MULTIEMPRESA Y WIDGET
+# ==========================================================
+
+# Negocio de los clientes registrados del chat original (el piloto).
+DEFAULT_BUSINESS_SLUG = os.environ.get("DEFAULT_BUSINESS_SLUG", "black-dog-store")
+
+# Duración de la sesión anónima de un visitante del widget.
+from datetime import timedelta  # noqa: E402
+
+WIDGET_SESSION_TTL = timedelta(hours=float(os.environ.get("WIDGET_SESSION_TTL_HOURS", "24")))
+# Mensajes máximos por sesión de visitante (control de abuso).
+WIDGET_MAX_MESSAGES_PER_SESSION = int(os.environ.get("WIDGET_MAX_MESSAGES_PER_SESSION", "200"))
+# Proxies delante de la API cuando el NAVEGADOR llama al widget (Render = 1). Distinto
+# de NUM_PROXIES, que cuenta también el proxy del frontend. Vacío = solo REMOTE_ADDR.
+WIDGET_NUM_PROXIES = int(os.environ.get("WIDGET_NUM_PROXIES") or "0") or None
+# Hosts que el conector de catálogo puede consultar (lista blanca, sin comodines).
+CATALOG_ALLOWED_HOSTS = [h.lower() for h in env_list("CATALOG_ALLOWED_HOSTS", "")]
+# Orígenes de la propia plataforma que pueden cargar cualquier widget (vista previa del panel).
+WIDGET_PREVIEW_ORIGINS = env_list("WIDGET_PREVIEW_ORIGINS", "")
+
+
+# ==========================================================
+# HTTPS EN PRODUCCIÓN
+# ==========================================================
+
+# DJANGO_HTTPS=true detrás de un proxy con HTTPS (Render). En local queda en false.
+if os.environ.get("DJANGO_HTTPS", "false").lower() == "true":
+    # Render termina el HTTPS y avisa con X-Forwarded-Proto.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    # Render atiende /api/health/ por HTTP interno: no se redirige.
+    SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS") or "3600")
+
+
+# ==========================================================
+# CORS
+# ==========================================================
+
+# Lista explícita de orígenes que pueden llamar a la API desde un navegador.
+# Desarrollo: http://localhost:3000. Producción: la URL HTTPS del frontend.
+# El frontend actual llama a la API desde su servidor, no desde el navegador.
+
+CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", "")
+
+if not DEBUG and any("*" in origin for origin in CORS_ALLOWED_ORIGINS):
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured("CORS_ALLOWED_ORIGINS no admite comodines en producción.")
+
+
+# ==========================================================
 # IDIOMA Y ZONA HORARIA
 # ==========================================================
 
@@ -302,3 +379,23 @@ USE_TZ = True
 STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# ==========================================================
+# LOGS ESTRUCTURADOS (JSON a la salida estándar)
+# ==========================================================
+
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"json": {"()": "core.logging.JsonFormatter"}},
+    "handlers": {"stdout": {"class": "logging.StreamHandler", "formatter": "json"}},
+    "root": {"handlers": ["stdout"], "level": LOG_LEVEL},
+    "loggers": {
+        # El log de peticiones propio reemplaza al de Django (que duplicaría cada línea).
+        "django.request": {"handlers": ["stdout"], "level": "ERROR", "propagate": False},
+        "django.server": {"handlers": [], "level": "ERROR", "propagate": False},
+    },
+}

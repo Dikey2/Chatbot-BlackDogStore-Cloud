@@ -1,9 +1,15 @@
 import "server-only";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 // URL de la API vista desde el servidor de Next.js (red interna de Docker).
-// El navegador nunca llama a la API directamente.
+// El navegador nunca llama a la API directamente (salvo el widget público).
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
+
+/** URL pública de la API: la que usa el widget instalado en webs de terceros. */
+export const API_PUBLIC_URL = (process.env.API_PUBLIC_URL ?? "http://localhost:8000").replace(/\/+$/, "");
+
+/** Cookie con el negocio elegido en el panel. Solo SELECCIONA: Django decide si el usuario pertenece. */
+export const BUSINESS_COOKIE = "negocio";
 
 export type ApiError = {
   code: string;
@@ -20,13 +26,22 @@ const UNAVAILABLE: ApiError = {
   message: "El servicio no está disponible. Inténtalo más tarde.",
 };
 
+const TIMEOUT: ApiError = {
+  code: "timeout",
+  message: "El servidor tardó demasiado en responder.",
+};
+
 export async function api<T>(
   path: string,
   options: { method?: string; body?: unknown; token?: string } = {},
 ): Promise<ApiResult<T>> {
   const requestHeaders: Record<string, string> = {};
   if (options.body !== undefined) requestHeaders["Content-Type"] = "application/json";
-  if (options.token) requestHeaders["Authorization"] = `Token ${options.token}`;
+  if (options.token) {
+    requestHeaders["Authorization"] = `Token ${options.token}`;
+    const business = (await cookies()).get(BUSINESS_COOKIE)?.value;
+    if (business && /^\d+$/.test(business)) requestHeaders["X-Business-Id"] = business;
+  }
   // Los rate limits de la API se aplican por IP del visitante, no del servidor web.
   const forwardedFor = (await headers()).get("x-forwarded-for");
   if (forwardedFor) requestHeaders["X-Forwarded-For"] = forwardedFor;
@@ -41,7 +56,11 @@ export async function api<T>(
     const data = response.status === 204 ? null : await response.json();
     if (response.ok) return { ok: true, status: response.status, data: data as T };
     return { ok: false, status: response.status, error: data?.error ?? UNAVAILABLE };
-  } catch {
+  } catch (error) {
+    // AbortSignal.timeout lanza TimeoutError: se distingue de una API caída.
+    if (error instanceof Error && error.name === "TimeoutError") {
+      return { ok: false, status: 504, error: TIMEOUT };
+    }
     return { ok: false, status: 503, error: UNAVAILABLE };
   }
 }

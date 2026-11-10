@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from chat.models import Conversation, Message
+from tenants.context import default_business
 
 pytestmark = pytest.mark.django_db
 CONVERSATIONS = "/api/chat/conversations/"
@@ -19,7 +20,7 @@ def close_url(conversation):
 
 @pytest.fixture
 def derived(cliente):
-    conversation = Conversation.objects.create(user=cliente, status="derivada")
+    conversation = Conversation.objects.create(business=default_business(), user=cliente, status="derivada")
     Message.objects.create(conversation=conversation, sender="cliente", content="¿Precio?")
     return conversation
 
@@ -27,7 +28,7 @@ def derived(cliente):
 # ---------- bandeja ----------
 @pytest.mark.parametrize("client_fixture", ["asesor_api", "admin_api"])
 def test_staff_filters_by_status_and_sees_client_name(request, client_fixture, cliente, derived):
-    Conversation.objects.create(user=cliente, status="abierta")
+    Conversation.objects.create(business=default_business(), user=cliente, status="abierta")
     client = request.getfixturevalue(client_fixture)
     body = client.get(CONVERSATIONS, {"status": "derivada"}).json()
     assert [c["id"] for c in body["results"]] == [derived.id]
@@ -35,7 +36,7 @@ def test_staff_filters_by_status_and_sees_client_name(request, client_fixture, c
 
 
 def test_cliente_status_filter_only_covers_own(cliente_api, make_user, derived):
-    Conversation.objects.create(user=make_user("otra@example.com"), status="derivada")
+    Conversation.objects.create(business=default_business(), user=make_user("otra@example.com"), status="derivada")
     body = cliente_api.get(CONVERSATIONS, {"status": "derivada"}).json()
     assert [c["id"] for c in body["results"]] == [derived.id]
 
@@ -106,7 +107,7 @@ def test_cliente_cannot_close(cliente_api, derived):
 
 def test_client_cannot_continue_closed_conversation_but_can_start_new(cliente_api, asesor_api, derived):
     asesor_api.post(close_url(derived))
-    with patch("chat.views.ask_chatbot", return_value=NO_MATCH):
+    with patch("chat.conversation.ask_chatbot", return_value=NO_MATCH):
         blocked = cliente_api.post(
             "/api/chat/messages/", {"message": "hola", "conversation_id": derived.id}, format="json"
         )

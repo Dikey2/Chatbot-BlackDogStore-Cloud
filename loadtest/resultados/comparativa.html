@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comparativa de carga</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:16px;max-width:820px;color:#111;background:#fff}
+svg{width:100%;height:auto;margin:16px 0;border:1px solid #e5e7eb;border-radius:8px}
+.t{font-size:15px;font-weight:600} .a{font-size:11px;fill:#374151} .g{stroke:#e5e7eb}
+</style></head><body>
+<h1>Pruebas de carga con Locust</h1>
+<p>Entorno local: Docker Compose, gunicorn y PostgreSQL 17. Datos ficticios. Tabla completa en <code>resumen.md</code>.</p>
+<svg viewBox="0 0 760 320" role="img" aria-label="Modalidad B: mediana por usuarios concurrentes">
+<text x="60" y="22" class="t">Modalidad B: mediana por usuarios concurrentes</text>
+<line x1="60" x2="740" y1="260.0" y2="260.0" class="g"/>
+<text x="54" y="264.0" class="a" text-anchor="end">0</text>
+<line x1="60" x2="740" y1="205.0" y2="205.0" class="g"/>
+<text x="54" y="209.0" class="a" text-anchor="end">6 500</text>
+<line x1="60" x2="740" y1="150.0" y2="150.0" class="g"/>
+<text x="54" y="154.0" class="a" text-anchor="end">13 000</text>
+<line x1="60" x2="740" y1="95.0" y2="95.0" class="g"/>
+<text x="54" y="99.0" class="a" text-anchor="end">19 500</text>
+<line x1="60" x2="740" y1="40.0" y2="40.0" class="g"/>
+<text x="54" y="44.0" class="a" text-anchor="end">26 000</text>
+<rect x="73.6" y="259.9" width="52.4" height="0.1" fill="#2563eb"><title>Lectura 50u: 9.0 ms</title></rect>
+<rect x="128.0" y="259.9" width="52.4" height="0.1" fill="#d97706"><title>Escritura 50u: 12.0 ms</title></rect>
+<text x="128.0" y="276" class="a" text-anchor="middle">50u</text>
+<rect x="209.6" y="259.4" width="52.4" height="0.6" fill="#2563eb"><title>Lectura 100u: 67.0 ms</title></rect>
+<rect x="264.0" y="259.0" width="52.4" height="1.0" fill="#d97706"><title>Escritura 100u: 120.0 ms</title></rect>
+<text x="264.0" y="276" class="a" text-anchor="middle">100u</text>
+<rect x="345.6" y="256.2" width="52.4" height="3.8" fill="#2563eb"><title>Lectura 200u: 450.0 ms</title></rect>
+<rect x="400.0" y="254.0" width="52.4" height="6.0" fill="#d97706"><title>Escritura 200u: 710.0 ms</title></rect>
+<text x="400.0" y="276" class="a" text-anchor="middle">200u</text>
+<rect x="481.6" y="253.9" width="52.4" height="6.1" fill="#2563eb"><title>Lectura 300u: 720.0 ms</title></rect>
+<rect x="536.0" y="250.7" width="52.4" height="9.3" fill="#d97706"><title>Escritura 300u: 1 100.0 ms</title></rect>
+<text x="536.0" y="276" class="a" text-anchor="middle">300u</text>
+<rect x="617.6" y="249.0" width="52.4" height="11.0" fill="#2563eb"><title>Lectura 500u: 1 300.0 ms</title></rect>
+<rect x="672.0" y="40.0" width="52.4" height="220.0" fill="#d97706"><title>Escritura 500u: 26 000.0 ms</title></rect>
+<text x="672.0" y="276" class="a" text-anchor="middle">500u</text>
+<rect x="60" y="290" width="12" height="12" fill="#2563eb"/>
+<text x="78" y="301" class="a">Lectura (ms)</text>
+<rect x="230" y="290" width="12" height="12" fill="#d97706"/>
+<text x="248" y="301" class="a">Escritura (ms)</text>
+</svg><svg viewBox="0 0 760 320" role="img" aria-label="Modalidad B: percentil 95 por usuarios concurrentes">
+<text x="60" y="22" class="t">Modalidad B: percentil 95 por usuarios concurrentes</text>
+<line x1="60" x2="740" y1="260.0" y2="260.0" class="g"/>
+<text x="54" y="264.0" class="a" text-anchor="end">0</text>
+<line x1="60" x2="740" y1="205.0" y2="205.0" class="g"/>
+<text x="54" y="209.0" class="a" text-anchor="end">11 500</text>
+<line x1="60" x2="740" y1="150.0" y2="150.0" class="g"/>
+<text x="54" y="154.0" class="a" text-anchor="end">23 000</text>
+<line x1="60" x2="740" y1="95.0" y2="95.0" class="g"/>
+<text x="54" y="99.0" class="a" text-anchor="end">34 500</text>
+<line x1="60" x2="740" y1="40.0" y2="40.0" class="g"/>
+<text x="54" y="44.0" class="a" text-anchor="end">46 000</text>
+<rect x="73.6" y="259.8" width="52.4" height="0.2" fill="#2563eb"><title>Lectura 50u: 37.0 ms</title></rect>
+<rect x="128.0" y="259.2" width="52.4" height="0.8" fill="#d97706"><title>Escritura 50u: 170.0 ms</title></rect>
+<text x="128.0" y="276" class="a" text-anchor="middle">50u</text>
+<rect x="209.6" y="255.5" width="52.4" height="4.5" fill="#2563eb"><title>Lectura 100u: 940.0 ms</title></rect>
+<rect x="264.0" y="257.0" width="52.4" height="3.0" fill="#d97706"><title>Escritura 100u: 620.0 ms</title></rect>
+<text x="264.0" y="276" class="a" text-anchor="middle">100u</text>
+<rect x="345.6" y="253.8" width="52.4" height="6.2" fill="#2563eb"><title>Lectura 200u: 1 300.0 ms</title></rect>
+<rect x="400.0" y="202.6" width="52.4" height="57.4" fill="#d97706"><title>Escritura 200u: 12 000.0 ms</title></rect>
+<text x="400.0" y="276" class="a" text-anchor="middle">200u</text>
+<rect x="481.6" y="222.2" width="52.4" height="37.8" fill="#2563eb"><title>Lectura 300u: 7 900.0 ms</title></rect>
+<rect x="536.0" y="150.0" width="52.4" height="110.0" fill="#d97706"><title>Escritura 300u: 23 000.0 ms</title></rect>
+<text x="536.0" y="276" class="a" text-anchor="middle">300u</text>
+<rect x="617.6" y="126.1" width="52.4" height="133.9" fill="#2563eb"><title>Lectura 500u: 28 000.0 ms</title></rect>
+<rect x="672.0" y="40.0" width="52.4" height="220.0" fill="#d97706"><title>Escritura 500u: 46 000.0 ms</title></rect>
+<text x="672.0" y="276" class="a" text-anchor="middle">500u</text>
+<rect x="60" y="290" width="12" height="12" fill="#2563eb"/>
+<text x="78" y="301" class="a">Lectura (ms)</text>
+<rect x="230" y="290" width="12" height="12" fill="#d97706"/>
+<text x="248" y="301" class="a">Escritura (ms)</text>
+</svg><svg viewBox="0 0 760 320" role="img" aria-label="Modalidad B: solicitudes por segundo">
+<text x="60" y="22" class="t">Modalidad B: solicitudes por segundo</text>
+<line x1="60" x2="740" y1="260.0" y2="260.0" class="g"/>
+<text x="54" y="264.0" class="a" text-anchor="end">0</text>
+<line x1="60" x2="740" y1="205.0" y2="205.0" class="g"/>
+<text x="54" y="209.0" class="a" text-anchor="end">48</text>
+<line x1="60" x2="740" y1="150.0" y2="150.0" class="g"/>
+<text x="54" y="154.0" class="a" text-anchor="end">95</text>
+<line x1="60" x2="740" y1="95.0" y2="95.0" class="g"/>
+<text x="54" y="99.0" class="a" text-anchor="end">143</text>
+<line x1="60" x2="740" y1="40.0" y2="40.0" class="g"/>
+<text x="54" y="44.0" class="a" text-anchor="end">191</text>
+<rect x="73.6" y="91.1" width="52.4" height="168.9" fill="#2563eb"><title>Lectura 50u: 146.6 req/s</title></rect>
+<rect x="128.0" y="103.8" width="52.4" height="156.2" fill="#d97706"><title>Escritura 50u: 135.6 req/s</title></rect>
+<text x="128.0" y="276" class="a" text-anchor="middle">50u</text>
+<rect x="209.6" y="41.5" width="52.4" height="218.5" fill="#2563eb"><title>Lectura 100u: 189.7 req/s</title></rect>
+<rect x="264.0" y="75.3" width="52.4" height="184.7" fill="#d97706"><title>Escritura 100u: 160.3 req/s</title></rect>
+<text x="264.0" y="276" class="a" text-anchor="middle">100u</text>
+<rect x="345.6" y="40.0" width="52.4" height="220.0" fill="#2563eb"><title>Lectura 200u: 191.0 req/s</title></rect>
+<rect x="400.0" y="165.6" width="52.4" height="94.4" fill="#d97706"><title>Escritura 200u: 82.0 req/s</title></rect>
+<text x="400.0" y="276" class="a" text-anchor="middle">200u</text>
+<rect x="481.6" y="83.6" width="52.4" height="176.4" fill="#2563eb"><title>Lectura 300u: 153.2 req/s</title></rect>
+<rect x="536.0" y="214.4" width="52.4" height="45.6" fill="#d97706"><title>Escritura 300u: 39.6 req/s</title></rect>
+<text x="536.0" y="276" class="a" text-anchor="middle">300u</text>
+<rect x="617.6" y="157.2" width="52.4" height="102.8" fill="#2563eb"><title>Lectura 500u: 89.2 req/s</title></rect>
+<rect x="672.0" y="247.5" width="52.4" height="12.5" fill="#d97706"><title>Escritura 500u: 10.8 req/s</title></rect>
+<text x="672.0" y="276" class="a" text-anchor="middle">500u</text>
+<rect x="60" y="290" width="12" height="12" fill="#2563eb"/>
+<text x="78" y="301" class="a">Lectura (req/s)</text>
+<rect x="230" y="290" width="12" height="12" fill="#d97706"/>
+<text x="248" y="301" class="a">Escritura (req/s)</text>
+</svg><svg viewBox="0 0 760 320" role="img" aria-label="Modalidad A: mediana por solicitudes totales">
+<text x="60" y="22" class="t">Modalidad A: mediana por solicitudes totales</text>
+<line x1="60" x2="740" y1="260.0" y2="260.0" class="g"/>
+<text x="54" y="264.0" class="a" text-anchor="end">0</text>
+<line x1="60" x2="740" y1="205.0" y2="205.0" class="g"/>
+<text x="54" y="209.0" class="a" text-anchor="end">18</text>
+<line x1="60" x2="740" y1="150.0" y2="150.0" class="g"/>
+<text x="54" y="154.0" class="a" text-anchor="end">35</text>
+<line x1="60" x2="740" y1="95.0" y2="95.0" class="g"/>
+<text x="54" y="99.0" class="a" text-anchor="end">52</text>
+<line x1="60" x2="740" y1="40.0" y2="40.0" class="g"/>
+<text x="54" y="44.0" class="a" text-anchor="end">70</text>
+<rect x="77.0" y="165.7" width="66.0" height="94.3" fill="#2563eb"><title>Lectura 1000req: 30.0 ms</title></rect>
+<rect x="145.0" y="40.0" width="66.0" height="220.0" fill="#d97706"><title>Escritura 1000req: 70.0 ms</title></rect>
+<text x="145.0" y="276" class="a" text-anchor="middle">1000req</text>
+<rect x="247.0" y="153.1" width="66.0" height="106.9" fill="#2563eb"><title>Lectura 2000req: 34.0 ms</title></rect>
+<rect x="315.0" y="162.6" width="66.0" height="97.4" fill="#d97706"><title>Escritura 2000req: 31.0 ms</title></rect>
+<text x="315.0" y="276" class="a" text-anchor="middle">2000req</text>
+<rect x="417.0" y="212.9" width="66.0" height="47.1" fill="#2563eb"><title>Lectura 3000req: 15.0 ms</title></rect>
+<rect x="485.0" y="172.0" width="66.0" height="88.0" fill="#d97706"><title>Escritura 3000req: 28.0 ms</title></rect>
+<text x="485.0" y="276" class="a" text-anchor="middle">3000req</text>
+<rect x="587.0" y="200.3" width="66.0" height="59.7" fill="#2563eb"><title>Lectura 5000req: 19.0 ms</title></rect>
+<rect x="655.0" y="181.4" width="66.0" height="78.6" fill="#d97706"><title>Escritura 5000req: 25.0 ms</title></rect>
+<text x="655.0" y="276" class="a" text-anchor="middle">5000req</text>
+<rect x="60" y="290" width="12" height="12" fill="#2563eb"/>
+<text x="78" y="301" class="a">Lectura (ms)</text>
+<rect x="230" y="290" width="12" height="12" fill="#d97706"/>
+<text x="248" y="301" class="a">Escritura (ms)</text>
+</svg><svg viewBox="0 0 760 320" role="img" aria-label="Antes y después de optimizar (100 usuarios): mediana">
+<text x="60" y="22" class="t">Antes y después de optimizar (100 usuarios): mediana</text>
+<line x1="60" x2="740" y1="260.0" y2="260.0" class="g"/>
+<text x="54" y="264.0" class="a" text-anchor="end">0</text>
+<line x1="60" x2="740" y1="205.0" y2="205.0" class="g"/>
+<text x="54" y="209.0" class="a" text-anchor="end">250</text>
+<line x1="60" x2="740" y1="150.0" y2="150.0" class="g"/>
+<text x="54" y="154.0" class="a" text-anchor="end">500</text>
+<line x1="60" x2="740" y1="95.0" y2="95.0" class="g"/>
+<text x="54" y="99.0" class="a" text-anchor="end">750</text>
+<line x1="60" x2="740" y1="40.0" y2="40.0" class="g"/>
+<text x="54" y="44.0" class="a" text-anchor="end">1 000</text>
+<rect x="94.0" y="40.0" width="134.0" height="220.0" fill="#2563eb"><title>Antes B-100u-lectura: 1 000.0 ms</title></rect>
+<rect x="230.0" y="249.4" width="134.0" height="10.6" fill="#d97706"><title>Después B-100u-lectura: 48.0 ms</title></rect>
+<text x="230.0" y="276" class="a" text-anchor="middle">B-100u-lectura</text>
+<rect x="434.0" y="90.6" width="134.0" height="169.4" fill="#2563eb"><title>Antes B-100u-escritura: 770.0 ms</title></rect>
+<rect x="570.0" y="211.6" width="134.0" height="48.4" fill="#d97706"><title>Después B-100u-escritura: 220.0 ms</title></rect>
+<text x="570.0" y="276" class="a" text-anchor="middle">B-100u-escritura</text>
+<rect x="60" y="290" width="12" height="12" fill="#2563eb"/>
+<text x="78" y="301" class="a">Antes (ms)</text>
+<rect x="230" y="290" width="12" height="12" fill="#d97706"/>
+<text x="248" y="301" class="a">Después (ms)</text>
+</svg><svg viewBox="0 0 760 320" role="img" aria-label="Antes y después de optimizar (100 usuarios): solicitudes por segundo">
+<text x="60" y="22" class="t">Antes y después de optimizar (100 usuarios): solicitudes por segundo</text>
+<line x1="60" x2="740" y1="260.0" y2="260.0" class="g"/>
+<text x="54" y="264.0" class="a" text-anchor="end">0</text>
+<line x1="60" x2="740" y1="205.0" y2="205.0" class="g"/>
+<text x="54" y="209.0" class="a" text-anchor="end">52</text>
+<line x1="60" x2="740" y1="150.0" y2="150.0" class="g"/>
+<text x="54" y="154.0" class="a" text-anchor="end">104</text>
+<line x1="60" x2="740" y1="95.0" y2="95.0" class="g"/>
+<text x="54" y="99.0" class="a" text-anchor="end">156</text>
+<line x1="60" x2="740" y1="40.0" y2="40.0" class="g"/>
+<text x="54" y="44.0" class="a" text-anchor="end">207</text>
+<rect x="94.0" y="196.9" width="134.0" height="63.1" fill="#2563eb"><title>Antes B-100u-lectura: 59.5 req/s</title></rect>
+<rect x="230.0" y="40.0" width="134.0" height="220.0" fill="#d97706"><title>Después B-100u-lectura: 207.4 req/s</title></rect>
+<text x="230.0" y="276" class="a" text-anchor="middle">B-100u-lectura</text>
+<rect x="434.0" y="185.9" width="134.0" height="74.1" fill="#2563eb"><title>Antes B-100u-escritura: 69.9 req/s</title></rect>
+<rect x="570.0" y="126.7" width="134.0" height="133.3" fill="#d97706"><title>Después B-100u-escritura: 125.6 req/s</title></rect>
+<text x="570.0" y="276" class="a" text-anchor="middle">B-100u-escritura</text>
+<rect x="60" y="290" width="12" height="12" fill="#2563eb"/>
+<text x="78" y="301" class="a">Antes (req/s)</text>
+<rect x="230" y="290" width="12" height="12" fill="#d97706"/>
+<text x="248" y="301" class="a">Después (req/s)</text>
+</svg>
+</body></html>

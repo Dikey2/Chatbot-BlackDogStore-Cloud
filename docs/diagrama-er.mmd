@@ -1,33 +1,94 @@
 %% Diagrama entidad-relación. Fuente editable (Mermaid).
-%% Editar aquí o pegar en https://mermaid.live. Se muestra en docs/BASE_DE_DATOS.md.
-%% Las entidades marcadas PLANIFICADA aún no existen en la base de datos.
+%% Editar aquí o pegar en https://mermaid.live. Se muestra en docs/BASE_DE_DATOS.md
+%% y se exporta a docs/diagrama-er.svg (ver BASE_DE_DATOS.md).
+%% Plataforma multiempresa (entrega del 100 %): todo dato de negocio cuelga de TENANTS_BUSINESS.
+%% ARCHIVO está PLANIFICADA (RF-10): todavía no existe en la base de datos.
 erDiagram
-    USERS_USER ||--o{ CHAT_CONVERSATION : "inicia"
+    TENANTS_BUSINESS ||--o{ TENANTS_BUSINESSDOMAIN : "autoriza orígenes"
+    TENANTS_BUSINESS ||--o{ TENANTS_MEMBERSHIP : "tiene equipo"
+    USERS_USER ||--o{ TENANTS_MEMBERSHIP : "pertenece (admin | asesor)"
+    TENANTS_BUSINESS ||--|| TENANTS_CHATBOTCONFIG : "configura su chatbot"
+    TENANTS_BUSINESS ||--o{ TENANTS_VISITORSESSION : "sesiones anónimas del widget"
+    TENANTS_BUSINESS ||--o{ FAQS_FAQ : "sus FAQ"
+    TENANTS_BUSINESS ||--o{ CHAT_CONVERSATION : "sus conversaciones"
+    TENANTS_BUSINESS |o--o{ AUDIT_AUDITEVENT : "sus eventos"
+    USERS_USER |o--o{ CHAT_CONVERSATION : "cliente registrado"
+    TENANTS_VISITORSESSION |o--o{ CHAT_CONVERSATION : "visitante del widget"
+    USERS_USER |o--o{ CHAT_CONVERSATION : "asesor asignado"
     USERS_USER ||--o| AUTHTOKEN_TOKEN : "tiene sesión"
     CHAT_CONVERSATION ||--o{ CHAT_MESSAGE : "contiene"
-    USERS_USER ||--o{ EVENTO_AUDITORIA : "genera (PLANIFICADA)"
+    USERS_USER |o--o{ AUDIT_AUDITEVENT : "genera"
     CHAT_CONVERSATION ||--o{ ARCHIVO : "adjunta (PLANIFICADA)"
 
+    TENANTS_BUSINESS {
+        bigint id PK
+        varchar public_id UK "id público del widget (no es secreto)"
+        varchar slug UK
+        varchar name "nombre comercial"
+        text description
+        varchar logo_url "https, opcional"
+        boolean is_active "false = suspendido"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    TENANTS_BUSINESSDOMAIN {
+        bigint id PK
+        bigint business_id FK "ON DELETE CASCADE"
+        varchar origin "scheme://host[:puerto], único por negocio"
+        timestamptz created_at
+    }
+    TENANTS_MEMBERSHIP {
+        bigint id PK
+        bigint user_id FK "ON DELETE CASCADE"
+        bigint business_id FK "ON DELETE CASCADE"
+        varchar role "admin | asesor (única fuente de autoridad)"
+        timestamptz created_at
+    }
+    TENANTS_CHATBOTCONFIG {
+        bigint business_id PK,FK "uno a uno"
+        varchar assistant_name
+        varchar welcome_message
+        varchar no_answer_message
+        varchar handoff_message
+        varchar handoff_keywords "reglas de derivación"
+        text schedule "solo si el negocio lo configura"
+        text contact_info "solo si el negocio lo configura"
+        varchar primary_color "#RRGGBB"
+        boolean is_active
+        timestamptz updated_at
+    }
+    TENANTS_VISITORSESSION {
+        bigint id PK
+        bigint business_id FK "ON DELETE CASCADE"
+        varchar token_hash UK "SHA-256; el token en claro no se guarda"
+        varchar origin
+        int message_count "control de abuso"
+        timestamptz expires_at "indexado"
+        timestamptz revoked_at
+        timestamptz created_at
+        timestamptz last_seen_at
+    }
     USERS_USER {
         bigint id PK
         varchar name "nombre"
         varchar email UK "correo, usado para iniciar sesión"
         varchar password "hash PBKDF2-SHA256, nunca texto plano"
-        varchar role "cliente | asesor | admin"
+        varchar role "heredado; la autoridad es TENANTS_MEMBERSHIP"
         boolean is_active
         boolean is_staff
-        boolean is_superuser
+        boolean is_superuser "superadministrador de la plataforma"
         timestamptz date_joined
         timestamptz last_login
     }
     AUTHTOKEN_TOKEN {
         varchar key PK "token de sesión"
-        bigint user_id FK,UK
-        timestamptz created
+        bigint user_id FK,UK "ON DELETE CASCADE"
+        timestamptz created "caduca a las TOKEN_TTL_HOURS"
     }
     FAQS_FAQ {
         bigint id PK
-        varchar category "categoría, indexada"
+        bigint business_id FK "ON DELETE CASCADE"
+        varchar category "categoría"
         varchar question "pregunta"
         text answer "respuesta"
         varchar keywords "palabras clave separadas por coma"
@@ -37,28 +98,35 @@ erDiagram
     }
     CHAT_CONVERSATION {
         bigint id PK
-        bigint user_id FK
-        varchar status "abierta | derivada | cerrada"
+        bigint business_id FK "ON DELETE CASCADE"
+        bigint user_id FK "nullable; cliente registrado"
+        bigint visitor_id FK "nullable; visitante del widget"
+        bigint assigned_to_id FK "nullable; asesor"
+        varchar status "abierta | derivada | atendiendo | cerrada"
         timestamptz created_at
     }
     CHAT_MESSAGE {
         bigint id PK
-        bigint conversation_id FK
+        bigint conversation_id FK "ON DELETE CASCADE"
         varchar sender "cliente | bot | asesor"
         text content
         timestamptz created_at
     }
-    EVENTO_AUDITORIA {
+    AUDIT_AUDITEVENT {
         bigint id PK
-        bigint user_id FK "PLANIFICADA, RF-12"
-        varchar accion
-        varchar resultado
-        timestamptz fecha
+        bigint business_id FK "nullable = evento de plataforma"
+        bigint user_id FK "nullable, ON DELETE SET NULL"
+        varchar email "copia del correo"
+        varchar action "login, faq_crear, negocio_crear, ..."
+        varchar result "exito | fallo"
+        varchar source "IP del cliente"
+        varchar detail "sin contraseñas, tokens ni mensajes"
+        timestamptz created_at
     }
     ARCHIVO {
         bigint id PK
         bigint conversation_id FK "PLANIFICADA, RF-10"
-        varchar clave_s3
+        varchar clave
         varchar nombre
         varchar tipo
         timestamptz creado_en

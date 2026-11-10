@@ -6,6 +6,7 @@
 """
 import logging
 
+from django.db.utils import InterfaceError, OperationalError
 from django.http import JsonResponse
 from rest_framework import exceptions
 from rest_framework.response import Response
@@ -19,6 +20,14 @@ def _body(code, message, **extra):
 
 
 def exception_handler(exc, context):
+    if isinstance(exc, (OperationalError, InterfaceError)):
+        # PostgreSQL caído o sin conexiones: servicio no disponible, no "error interno".
+        logger.error("database_unavailable", extra={"operation": "db", "error_code": "database_unavailable"})
+        return Response(
+            _body("database_unavailable", "La base de datos no está disponible. Inténtelo más tarde."),
+            status=503,
+            headers={"Retry-After": "10"},
+        )
     response = drf_exception_handler(exc, context)
     if response is None:
         # Error no previsto: se registra completo y el cliente no ve detalles internos.
@@ -30,6 +39,8 @@ def exception_handler(exc, context):
     else:
         detail = response.data.get("detail", "") if isinstance(response.data, dict) else ""
         code = getattr(detail, "code", None) or getattr(exc, "default_code", "error")
+        if response.status_code == 403 and isinstance(exc, exceptions.PermissionDenied):
+            _audit_denied(context.get("request"))
         if response.status_code == 404:
             # El texto por defecto de Django nombra el modelo interno.
             detail = "Recurso no encontrado."
@@ -37,5 +48,25 @@ def exception_handler(exc, context):
     return response
 
 
+def handler500(request, *args, **kwargs):
+    """Errores fuera de DRF: JSON sin detalles internos."""
+    return JsonResponse(_body("server_error", "Error interno del servidor."), status=500)
+
+
 def api_not_found(request, *args, **kwargs):
     return JsonResponse(_body("not_found", "Ruta no encontrada."), status=404)
+
+
+def _audit_denied(request):
+    """Intento de acceso a un recurso sin permiso (por ejemplo, URL escrita a mano)."""
+    if request is None or not request.user.is_authenticated:
+        return
+    from audit.models import AuditEvent
+    from audit.services import record
+
+    record(
+        request,
+        AuditEvent.Action.ACCESO_DENEGADO,
+        AuditEvent.Result.FALLO,
+        detail=f"{request.method} {request.path}",
+    )

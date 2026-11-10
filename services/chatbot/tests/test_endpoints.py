@@ -20,7 +20,7 @@ def test_reply_ok(client):
 
 
 def test_reply_with_empty_faq_list_escalates(client):
-    response = post(client, {"message": "hola", "faqs": []})
+    response = post(client, {"message": "precio de la laptop X", "faqs": []})
     assert response.status_code == 200
     assert response.json()["escalate"] is True
 
@@ -42,3 +42,22 @@ def test_reply_rejects_invalid_body(client, body):
 
 def test_reply_rejects_get(client):
     assert client.get("/api/reply/").status_code == 405
+
+
+def test_reply_accepts_business_settings(client):
+    response = client.post(
+        "/api/reply/",
+        {"message": "hola", "faqs": [], "settings": {"business_name": "Café Aurora", "assistant_name": "Aurora"}},
+        content_type="application/json",
+    )
+    assert response.status_code == 200
+    assert response.json()["answer"].startswith("¡Hola! Soy Aurora de Café Aurora.")
+
+
+def test_reply_rejects_oversized_settings(client):
+    response = client.post(
+        "/api/reply/",
+        {"message": "hola", "faqs": [], "settings": {"assistant_name": "x" * 81}},
+        content_type="application/json",
+    )
+    assert response.status_code == 400

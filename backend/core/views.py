@@ -47,3 +47,13 @@ def health(request):
         },
         status=200 if healthy else 503,
     )
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([])
+def live(request):
+    """Vida del proceso, sin dependencias: para el orquestador (no reiniciar el
+    backend porque el chatbot o la base estén caídos; eso lo dice /api/health/)."""
+    return Response({"status": "ok", "service": "backend"})

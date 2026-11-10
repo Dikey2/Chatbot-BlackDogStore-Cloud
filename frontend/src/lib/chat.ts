@@ -8,12 +8,15 @@ export type ChatMessage = {
   created_at: string;
 };
 
-export type ConversationStatus = "abierta" | "derivada" | "cerrada";
+export type ConversationStatus = "abierta" | "derivada" | "atendiendo" | "cerrada";
 
 export type Conversation = {
   id: number;
-  user: number;
+  user: number | null;
   user_name: string;
+  channel?: "widget" | "plataforma";
+  assigned_to?: number | null;
+  assigned_to_name?: string | null;
   status: ConversationStatus;
   created_at: string;
 };
@@ -33,12 +36,16 @@ export function getLatestConversation(token: string): Promise<ApiResult<Conversa
 }
 
 /** Bandeja del asesor: la API devuelve todas las conversaciones solo a asesor y admin. */
+/** Vista de la bandeja: un estado, o "mias" (las asignadas al asesor, en cualquier estado). */
+export type InboxView = ConversationStatus | "mias";
+
 export function listConversations(
   token: string,
-  status: ConversationStatus,
+  view: InboxView,
   page: number,
 ): Promise<ApiResult<ConversationPage>> {
-  return api<ConversationPage>(`/api/chat/conversations/?status=${status}&page=${page}`, { token });
+  const filter = view === "mias" ? "assigned=me" : `status=${view}`;
+  return api<ConversationPage>(`/api/chat/conversations/?${filter}&page=${page}`, { token });
 }
 
 export function getConversation(token: string, id: number): Promise<ApiResult<ConversationDetail>> {
@@ -47,8 +54,17 @@ export function getConversation(token: string, id: number): Promise<ApiResult<Co
 
 export const STATUS_LABELS: Record<ConversationStatus, string> = {
   derivada: "Derivadas",
+  atendiendo: "En atención",
   abierta: "Abiertas",
   cerrada: "Cerradas",
+};
+
+/** Clave de i18n de cada estado. */
+export const STATUS_KEYS: Record<ConversationStatus, string> = {
+  derivada: "advisor.escalated",
+  atendiendo: "advisor.attending",
+  abierta: "advisor.open",
+  cerrada: "advisor.closed",
 };
 
 export const SENDER_LABELS: Record<ChatMessage["sender"], string> = {

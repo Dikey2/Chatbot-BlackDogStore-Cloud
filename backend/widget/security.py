@@ -1,0 +1,155 @@
+"""Seguridad del widget público.
+
+- El negocio se identifica por su ``public_id`` (no es un secreto: solo dice
+  qué chatbot cargar). No hay ninguna clave en el JavaScript público.
+- Solo los orígenes autorizados por el negocio pueden usar su widget
+  (``BusinessDomain``). El navegador envía ``Origin`` y no deja que una página
+  lo falsifique; una petición sin ``Origin`` no viene de un navegador y se rechaza.
+- El visitante se identifica con un token de sesión anónima (cabecera
+  ``X-Visitor-Token``) que solo abre SU conversación. En la base vive el hash.
+"""
+from django.conf import settings
+from django.utils import timezone
+from rest_framework.exceptions import APIException, AuthenticationFailed, NotFound, PermissionDenied
+from core.throttling import SimpleRateThrottle
+
+from tenants.models import Business, BusinessDomain, VisitorSession
+
+TOKEN_HEADER = "HTTP_X_VISITOR_TOKEN"
+
+
+class ChatbotNotFound(NotFound):
+    default_code = "chatbot_not_found"
+    default_detail = "Chatbot no encontrado."
+
+
+class OriginNotAllowed(PermissionDenied):
+    default_code = "origin_not_allowed"
+    default_detail = "Este sitio no está autorizado para usar el chatbot."
+
+
+class VisitorSessionInvalid(AuthenticationFailed):
+    default_code = "visitor_session_invalid"
+    default_detail = "La sesión del chat expiró. Se iniciará una nueva."
+
+
+class SessionLimitReached(APIException):
+    status_code = 429
+    default_code = "session_message_limit"
+    default_detail = "Se alcanzó el límite de mensajes de esta sesión."
+
+
+def origin_allowed(public_id, origin, request=None):
+    """¿Puede ``origin`` usar el widget del negocio ``public_id``? Lo usan la vista y el CORS.
+
+    El resultado se guarda en la petición: el middleware de CORS y la vista
+    preguntan lo mismo y antes eran dos consultas idénticas.
+    """
+    if not origin:
+        return False
+    memo = getattr(request, "_widget_origin", None) if request is not None else None
+    if memo is not None and memo[0] == (public_id, origin):
+        return memo[1]
+    allowed = _origin_allowed(public_id, origin)
+    if request is not None:
+        request._widget_origin = ((public_id, origin), allowed)
+    return allowed
+
+
+def _origin_allowed(public_id, origin):
+    if origin in settings.WIDGET_PREVIEW_ORIGINS:
+        return Business.objects.filter(public_id=public_id).exists()
+    return BusinessDomain.objects.filter(
+        business__public_id=public_id, business__is_active=True, origin=origin
+    ).exists()
+
+
+def widget_business(request, public_id):
+    """Negocio activo con chatbot activo, pedido desde un origen autorizado."""
+    business = (
+        Business.objects.select_related("chatbot")
+        .filter(public_id=public_id, is_active=True, chatbot__is_active=True)
+        .first()
+    )
+    if business is None:
+        # Inexistente, suspendido o desactivado: la misma respuesta.
+        raise ChatbotNotFound()
+    origin = request.headers.get("Origin", "")
+    if not origin_allowed(public_id, origin, getattr(request, "_request", request)):
+        raise OriginNotAllowed()
+    # Para el log de la petición: el widget actúa en este negocio, sin usuario.
+    django_request = getattr(request, "_request", request)
+    django_request._tenant = (business, None)
+    return business
+
+
+def visitor_session(request, business):
+    token = request.META.get(TOKEN_HEADER, "")
+    if not token or len(token) > 100:
+        raise VisitorSessionInvalid()
+    session = VisitorSession.objects.filter(
+        token_hash=VisitorSession.hash(token), business=business
+    ).first()
+    # Token de otro negocio, revocado o vencido: igual que inexistente.
+    if session is None or not session.is_valid:
+        raise VisitorSessionInvalid()
+    return session
+
+
+def visitor_ip(request):
+    """IP del visitante para los límites del widget.
+
+    El widget llama a la API directo desde el navegador: delante solo están los
+    proxies de la plataforma (Render = 1). Se toma la dirección que agregó el
+    último de esos ``WIDGET_NUM_PROXIES`` proxies, nunca una que pueda escribir el
+    visitante en ``X-Forwarded-For``. Sin la variable, solo cuenta REMOTE_ADDR.
+    """
+    remote = request.META.get("REMOTE_ADDR", "")
+    proxies = settings.WIDGET_NUM_PROXIES
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if not proxies or not xff:
+        return remote
+    addrs = [a.strip() for a in xff.split(",") if a.strip()]
+    return addrs[-min(proxies, len(addrs))] if addrs else remote
+
+
+class WidgetSessionThrottle(SimpleRateThrottle):
+    """Sesiones nuevas por IP: frena la creación masiva de visitantes."""
+
+    scope = "widget_session"
+
+    def get_ident(self, request):
+        return visitor_ip(request)
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {"scope": self.scope, "ident": self.get_ident(request)}
+
+
+class WidgetReadThrottle(WidgetSessionThrottle):
+    """Lecturas (configuración e historial) por IP."""
+
+    scope = "widget_read"
+
+
+class WidgetMessageThrottle(SimpleRateThrottle):
+    """Mensajes por visitante (su token) y, sin token, por IP."""
+
+    scope = "widget_message"
+
+    def get_ident(self, request):
+        return visitor_ip(request)
+
+    def get_cache_key(self, request, view):
+        token = request.META.get(TOKEN_HEADER, "")
+        ident = VisitorSession.hash(token)[:32] if token else self.get_ident(request)
+        return self.cache_format % {"scope": self.scope, "ident": ident}
+
+
+class WidgetMessageIpThrottle(WidgetSessionThrottle):
+    """Además, un tope por IP: rotar tokens no permite saltarse el límite."""
+
+    scope = "widget_message_ip"
+
+
+def now():
+    return timezone.now()

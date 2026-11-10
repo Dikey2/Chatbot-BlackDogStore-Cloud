@@ -1,4 +1,7 @@
 "use client";
+import { useLocale } from "@/components/LocaleProvider";
+import { t } from "@/lib/i18n";
+
 
 import { useActionState, useState, useTransition } from "react";
 import { closeAction, type ReplyState } from "@/app/asesor/actions";
@@ -10,19 +13,20 @@ export function AdvisorReply({
   conversationId: number;
   action: (state: ReplyState, form: FormData) => Promise<ReplyState>;
 }) {
+  const locale = useLocale();
   const [state, formAction, pending] = useActionState(action, {});
   const [closing, startClosing] = useTransition();
   const [closeError, setCloseError] = useState<string | null>(null);
 
   function close() {
-    if (!window.confirm("¿Cerrar la conversación? El cliente empezará una nueva si vuelve a escribir.")) return;
+    if (!window.confirm(t(locale, "advisor.closeConfirm"))) return;
     setCloseError(null);
     startClosing(async () => {
       try {
         const result = await closeAction(conversationId);
-        if (!result.ok) setCloseError(result.message ?? "No se pudo cerrar.");
+        if (!result.ok) setCloseError(result.message ?? t(locale, "advisor.closeError"));
       } catch {
-        setCloseError("No se pudo conectar con el servidor.");
+        setCloseError(t(locale, "common.sessionError"));
       }
     });
   }
@@ -31,7 +35,7 @@ export function AdvisorReply({
     <>
       <form action={formAction} className="form" key={state.sentAt ?? "reply"}>
         <label>
-          Respuesta al cliente
+          {t(locale, "advisor.reply")}
           <textarea name="message" rows={3} maxLength={2000} defaultValue={state.value ?? ""} required />
           {state.fields?.message?.map((message) => (
             <span key={message} className="error" role="alert">
@@ -46,15 +50,15 @@ export function AdvisorReply({
         )}
         {state.sentAt && (
           <p className="ok" role="status">
-            Respuesta enviada.
+            {t(locale, "advisor.replySent")}
           </p>
         )}
         <div className="row-actions">
           <button type="submit" disabled={pending || closing}>
-            {pending ? "Enviando…" : "Responder"}
+            {pending ? t(locale, "common.sending") : t(locale, "advisor.replyButton")}
           </button>
           <button type="button" className="secondary" onClick={close} disabled={pending || closing}>
-            {closing ? "Cerrando…" : "Cerrar conversación"}
+            {closing ? t(locale, "advisor.closing") : t(locale, "advisor.close")}
           </button>
         </div>
       </form>

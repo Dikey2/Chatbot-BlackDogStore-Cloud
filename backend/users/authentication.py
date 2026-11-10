@@ -17,11 +17,24 @@ def is_expired(token):
 class ExpiringTokenAuthentication(TokenAuthentication):
     """Token de DRF con caducidad absoluta desde su creación (TOKEN_TTL_HOURS)."""
 
+    def authenticate(self, request):
+        self._request = request
+        return super().authenticate(request)
+
     def authenticate_credentials(self, key):
         user, token = super().authenticate_credentials(key)
         if is_expired(token):
             # Un token caducado no vuelve a servir: se borra.
             token.delete()
+            from audit.models import AuditEvent
+            from audit.services import record
+
+            record(
+                getattr(self, "_request", None),
+                AuditEvent.Action.TOKEN_EXPIRADO,
+                AuditEvent.Result.FALLO,
+                user=user,
+            )
             raise AuthenticationFailed(
                 "La sesión expiró. Inicie sesión de nuevo.", code="token_expired"
             )

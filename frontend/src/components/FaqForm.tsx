@@ -1,4 +1,7 @@
 "use client";
+import { useLocale } from "@/components/LocaleProvider";
+import { t } from "@/lib/i18n";
+
 
 import { useActionState, useEffect, useRef } from "react";
 import type { FaqFormState } from "@/app/admin/faqs/actions";
@@ -22,6 +25,7 @@ export function FaqForm({
   initial?: Values;
   submitLabel: string;
 }) {
+  const locale = useLocale();
   const [state, formAction, pending] = useActionState(action, {});
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -49,22 +53,22 @@ export function FaqForm({
       key={JSON.stringify(values ?? state.saved ?? "")}
     >
       <label>
-        Categoría
+        {t(locale, "common.category")}
         <input name="category" defaultValue={value("category")} maxLength={50} required />
         {errors("category")}
       </label>
       <label>
-        Pregunta
+        {t(locale, "common.question")}
         <input name="question" defaultValue={value("question")} maxLength={255} required />
         {errors("question")}
       </label>
       <label>
-        Respuesta
+        {t(locale, "common.answer")}
         <textarea name="answer" defaultValue={value("answer")} rows={3} required />
         {errors("answer")}
       </label>
       <label>
-        Palabras clave (separadas por coma)
+        {t(locale, "faq.keywords")}
         <input name="keywords" defaultValue={value("keywords")} maxLength={255} required />
         {errors("keywords")}
       </label>
@@ -74,7 +78,7 @@ export function FaqForm({
           name="is_active"
           defaultChecked={values ? values.is_active === "on" : initial.is_active}
         />
-        Activa (visible para clientes y para el chatbot)
+        {t(locale, "faq.activeHelp")}
       </label>
       {state.message && (
         <p className="error" role="alert" data-testid="faq-form-error">
@@ -83,11 +87,11 @@ export function FaqForm({
       )}
       {state.saved && (
         <p className="ok" role="status">
-          Pregunta frecuente creada.
+          {t(locale, "faq.created")}
         </p>
       )}
       <button type="submit" disabled={pending}>
-        {pending ? "Guardando…" : submitLabel}
+        {pending ? t(locale, "faq.saving") : submitLabel}
       </button>
     </form>
   );

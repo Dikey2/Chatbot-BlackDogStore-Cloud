@@ -1,0 +1,50 @@
+ Container blackdog-saas-locust-run-b2556cbca8a5 Creating 
+ Container blackdog-saas-locust-run-b2556cbca8a5 Created 
+[2026-11-10 19:14:11,066] 6224d81f660e/INFO/locust.main: Starting Locust 2.46.7
+[2026-11-10 19:14:11,068] 6224d81f660e/INFO/locust.main: Run time limit set to 1800 seconds
+[2026-11-10 19:14:11,070] 6224d81f660e/INFO/locust.runners: Ramping to 100 users at a rate of 20.00 per second
+[2026-11-10 19:14:15,082] 6224d81f660e/INFO/locust.runners: All users spawned: {"Lectura": 34, "LecturaAsesor": 33, "Widget": 33} (100 total users)
+[2026-11-10 19:18:05,842] 6224d81f660e/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-71" at 0xffff9ccc5da0: _run>
+[2026-11-10 19:18:05,845] 6224d81f660e/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-71" at 0xffff9ccc5da0: _run>
+[2026-11-10 19:18:05,846] 6224d81f660e/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-71" at 0xffff9ccc5da0: _run>
+[2026-11-10 19:18:06,042] 6224d81f660e/INFO/locust.main: Shutting down (exit code 1)
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+POST     /api/auth/login/                                                                  67     0(0.00%) |    693     359    1171    670 |    0.29        0.00
+GET      /api/chat/conversations/ (propias)                                              3735     0(0.00%) |    164       8    1002    130 |   15.91        0.00
+GET      /api/chat/conversations/?status=[estado]&page=[n]                              16529   117(0.71%) |    163       8    1053    130 |   70.39        0.50
+GET      /api/chat/conversations/latest/                                                 3815     0(0.00%) |    163       8    1006    130 |   16.25        0.00
+GET      /api/faqs/                                                                      5729     0(0.00%) |    161       7    1005    130 |   24.40        0.00
+GET      /api/health/                                                                    1830     0(0.00%) |    150       2     940    120 |    7.79        0.00
+GET      /api/users/me/                                                                  1888     0(0.00%) |    159       7     982    130 |    8.04        0.00
+GET      /api/widget/[id]/config/                                                          33     0(0.00%) |    890     834     972    870 |    0.14        0.00
+GET      /api/widget/[id]/conversation/                                                  9294     0(0.00%) |    161       8     986    130 |   39.58        0.00
+POST     /api/widget/[id]/messages/                                                      7022     0(0.00%) |    175      14    1055    140 |   29.90        0.00
+POST     /api/widget/[id]/session/                                                         33     0(0.00%) |    241     101     405    250 |    0.14        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                     49975   117(0.23%) |    165       2    1171    130 |  212.82        0.50
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+POST     /api/auth/login/                                                                      670    840    870    900   1100   1100   1200   1200   1200   1200   1200     67
+GET      /api/chat/conversations/ (propias)                                                    130    170    200    220    290    380    540    710    950   1000   1000   3735
+GET      /api/chat/conversations/?status=[estado]&page=[n]                                     130    170    200    220    290    370    500    690    910   1000   1100  16529
+GET      /api/chat/conversations/latest/                                                       130    170    200    220    290    390    510    690    990   1000   1000   3815
+GET      /api/faqs/                                                                            130    170    200    220    290    390    490    630    880   1000   1000   5729
+GET      /api/health/                                                                          120    160    190    210    270    360    470    640    880    940    940   1830
+GET      /api/users/me/                                                                        130    170    200    220    280    370    490    650    980    980    980   1888
+GET      /api/widget/[id]/config/                                                              870    910    920    950    960    970    970    970    970    970    970     33
+GET      /api/widget/[id]/conversation/                                                        130    170    200    220    290    380    490    650    900    990    990   9294
+POST     /api/widget/[id]/messages/                                                            140    190    220    240    300    390    530    710    920   1100   1100   7022
+POST     /api/widget/[id]/session/                                                             250    290    300    400    400    400    410    410    410    410    410     33
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                            130    170    200    230    290    390    520    710    950   1100   1200  49975
+
+Error report
+# occurrences      Error                                                                                               
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+117                GET /api/chat/conversations/?status=[estado]&page=[n]: HTTPError('404 Client Error: Not Found for url: /api/chat/conversations/?status=[estado]&page=[n]')
+------------------|---------------------------------------------------------------------------------------------------------------------------------------------
+
+

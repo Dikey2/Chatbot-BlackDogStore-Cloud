@@ -6,7 +6,24 @@ const COOKIE_NAME = "session";
 const DEFAULT_MAX_AGE_SECONDS = 60 * 60 * 8;
 const EXPIRED_LOGIN_PATH = "/login?motivo=expirada";
 
-export type User = { id: number; name: string; email: string; role: string };
+export type Membership = {
+  business_id: number;
+  business_name: string;
+  public_id: string;
+  role: "admin" | "asesor";
+  is_active: boolean;
+};
+
+/** `role` es el rol EN el negocio resuelto por Django ('admin', 'asesor' o 'cliente'). */
+export type User = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  business?: { id: number; name: string; public_id: string };
+  memberships?: Membership[];
+  is_platform_admin?: boolean;
+};
 
 export async function getToken(): Promise<string | undefined> {
   return (await cookies()).get(COOKIE_NAME)?.value;
@@ -34,7 +51,7 @@ export async function clearToken() {
 export type Session =
   | { state: "authenticated"; user: User; token: string }
   | { state: "anonymous"; expired: boolean }
-  | { state: "unavailable" };
+  | { state: "unavailable"; reason: "timeout" | "unavailable" };
 
 /** Ruta de login; con aviso si la API indicó que la sesión expiró. */
 export function loginPath(error?: ApiError | null) {
@@ -50,6 +67,8 @@ export async function getSession(): Promise<Session> {
   if (!token) return { state: "anonymous", expired: false };
   const result = await api<User>("/api/users/me/", { token });
   if (result.ok) return { state: "authenticated", user: result.data, token };
-  if (result.status !== 401) return { state: "unavailable" };
+  if (result.status !== 401) {
+    return { state: "unavailable", reason: result.error.code === "timeout" ? "timeout" : "unavailable" };
+  }
   return { state: "anonymous", expired: result.error.code === "token_expired" };
 }

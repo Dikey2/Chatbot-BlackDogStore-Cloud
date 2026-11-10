@@ -124,7 +124,7 @@ def test_login_validates_body(api):
 
 
 # ---------- perfil ----------
-def test_me_returns_profile(cliente_api, cliente):
+def test_me_returns_profile(cliente_api, cliente, pilot):
     response = cliente_api.get(ME)
     assert response.status_code == 200
     assert response.json() == {
@@ -132,6 +132,10 @@ def test_me_returns_profile(cliente_api, cliente):
         "name": cliente.name,
         "email": cliente.email,
         "role": "cliente",
+        # Plataforma multiempresa: un cliente registrado conversa con el negocio piloto.
+        "business": {"id": pilot.id, "name": pilot.name, "public_id": pilot.public_id},
+        "memberships": [],
+        "is_platform_admin": False,
     }
 
 
@@ -176,3 +180,19 @@ def test_superuser_gets_admin_role(db):
         email="Root@Example.com", password=PASSWORD, name="Root"
     )
     assert (user.email, user.role, user.is_staff) == ("root@example.com", "admin", True)
+
+
+def test_login_trims_spaces_and_ignores_case(api, cliente):
+    response = api.post(
+        "/api/auth/login/",
+        {"email": f"  {cliente.email.upper()}  ", "password": PASSWORD},
+        format="json",
+    )
+    assert response.status_code == 200
+
+
+def test_revoked_token_cannot_be_reused(cliente_api):
+    assert cliente_api.post("/api/auth/logout/").status_code == 204
+    response = cliente_api.get("/api/users/me/")
+    assert response.status_code == 401
+    assert cliente_api.get("/api/chat/conversations/").status_code == 401

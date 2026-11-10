@@ -1,13 +1,15 @@
 "use client";
+import { useLocale } from "@/components/LocaleProvider";
+import { t } from "@/lib/i18n";
+
 
 import { useState, type FormEvent } from "react";
 import { sendMessageAction } from "@/app/actions";
 import type { ChatMessage } from "@/lib/chat";
 
-const SENDER_LABELS = { cliente: "Tú", bot: "Chatbot", asesor: "Asesor" } as const;
-
 const MAX_LENGTH = 500;
-const CONNECTION_ERROR = "No se pudo conectar con el servidor. Revisa tu conexión e inténtalo otra vez.";
+// Errores previstos con texto propio en ambos idiomas; el resto muestra el mensaje de la API.
+const KNOWN_ERRORS = new Set(["chatbot_unavailable", "timeout", "unavailable", "throttled", "server_error"]);
 
 export function ChatBox({
   initialConversationId = null,
@@ -20,6 +22,7 @@ export function ChatBox({
   initialEscalated?: boolean;
   initialClosed?: boolean;
 }) {
+  const locale = useLocale();
   // El historial llega del servidor (PostgreSQL); el estado local solo agrega lo nuevo.
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   // Una conversación cerrada por el asesor no se continúa: el siguiente mensaje abre otra.
@@ -41,7 +44,7 @@ export function ChatBox({
     try {
       const reply = await sendMessageAction(message, conversationId);
       if (!reply.ok) {
-        setError(reply.message);
+        setError(KNOWN_ERRORS.has(reply.code) ? t(locale, `errors.${reply.code}`) : reply.message);
         return;
       }
       setText("");
@@ -55,7 +58,7 @@ export function ChatBox({
       setMessages((previous) => [...previous, reply.userMessage, reply.botMessage]);
     } catch {
       // Falla la red entre el navegador y el servidor web. El texto se conserva.
-      setError(CONNECTION_ERROR);
+      setError(t(locale, "chat.netError"));
     } finally {
       setPending(false);
     }
@@ -65,7 +68,7 @@ export function ChatBox({
     <section>
       <ol className="messages" aria-live="polite" data-testid="messages">
         {messages.length === 0 && (
-          <li className="muted">Escribe tu consulta para comenzar.</li>
+          <li className="muted">{t(locale, "chat.start")}</li>
         )}
         {messages.map((message) => (
           <li
@@ -73,19 +76,19 @@ export function ChatBox({
             className={`message ${message.sender}`}
             data-sender={message.sender}
           >
-            {message.sender === "asesor" && <span className="sender">{SENDER_LABELS.asesor}</span>}
+            {message.sender === "asesor" && <span className="sender">{t(locale, "common.advisor")}</span>}
             {message.content}
           </li>
         ))}
       </ol>
       {closed && (
         <p className="muted" data-testid="conversation-closed">
-          Un asesor cerró esta conversación. Tu próximo mensaje iniciará una nueva.
+          {t(locale, "chat.closed")}
         </p>
       )}
       {escalated && (
         <p className="muted" data-testid="escalated">
-          Tu consulta fue derivada a un asesor.
+          {t(locale, "chat.escalated")}
         </p>
       )}
       {error && (
@@ -95,15 +98,15 @@ export function ChatBox({
       )}
       <form onSubmit={handleSubmit} className="chat-form">
         <input
-          aria-label="Mensaje"
+          aria-label={t(locale, "chat.message")}
           value={text}
           onChange={(event) => setText(event.target.value)}
           maxLength={MAX_LENGTH}
-          placeholder="Por ejemplo: ¿cuál es el horario?"
+          placeholder={t(locale, "chat.placeholder")}
           autoComplete="off"
         />
         <button type="submit" disabled={pending || !text.trim()}>
-          {pending ? "Enviando…" : "Enviar"}
+          {pending ? t(locale, "common.sending") : t(locale, "chat.send")}
         </button>
       </form>
     </section>

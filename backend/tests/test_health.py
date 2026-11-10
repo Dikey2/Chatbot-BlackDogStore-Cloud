@@ -40,3 +40,12 @@ def test_rejects_post(api):
 def test_health_is_not_rate_limited(_, api, settings):
     for _i in range(70):  # por encima del límite anónimo de 60/min
         assert api.get(URL).status_code == 200
+
+
+
+def test_liveness_does_not_depend_on_database_or_chatbot(api, db):
+    with patch("core.views._database_ok", return_value=False), patch("core.views._chatbot_ok", return_value=False):
+        assert api.get("/api/health/").status_code == 503
+        response = api.get("/api/health/live/")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "service": "backend"}

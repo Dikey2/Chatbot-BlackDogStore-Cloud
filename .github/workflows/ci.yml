@@ -1,0 +1,124 @@
+# Integración continua: valida backend, chatbot y frontend en cada push y PR.
+# NO despliega: publicar en Render u otro proveedor sigue siendo un paso manual
+# y autorizado. Los secretos de esta CI son valores efímeros de prueba.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Django + PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: ci
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-a-secret
+      POSTGRES_DB: ci
+      POSTGRES_USER: ci
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.ci.lock
+      # Versiones fijadas con hash y solo ruedas precompiladas: no se ejecutan
+      # scripts de instalación de terceros (mismas versiones que producción).
+      - run: "pip install --require-hashes --only-binary :all: -r ../requirements.ci.lock"
+      - name: Configuración de Django
+        run: python manage.py check --deploy --fail-level ERROR
+        env:
+          DJANGO_DEBUG: "false"
+      - name: Migraciones al día (sin cambios pendientes)
+        run: python manage.py makemigrations --check --dry-run
+      - name: Migraciones aplicables desde cero
+        run: python manage.py migrate --noinput
+      - name: Pruebas
+        run: pytest -q
+
+  chatbot:
+    name: Servicio de chatbot
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CHATBOT_SECRET_KEY: ci-only-not-a-secret
+    defaults:
+      run:
+        working-directory: services/chatbot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.ci.lock
+      - run: "pip install --require-hashes --only-binary :all: -r ../../requirements.ci.lock"
+      - run: python manage.py check
+      - run: pytest -q
+
+  frontend:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # Sin scripts de ciclo de vida de los paquetes; solo binarios ya instalados por el lock.
+      - run: npm ci --ignore-scripts
+      - name: Tipos de rutas de Next
+        run: ./node_modules/.bin/next typegen
+      - name: TypeScript
+        run: ./node_modules/.bin/tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Sintaxis del widget público
+        working-directory: backend/widget/static_src
+        run: node --check widget.js
+
+  docker:
+    name: Imágenes Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [backend, chatbot, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build de las imágenes (sin publicar)
+        run: |
+          docker build -t ci/backend ./backend
+          docker build -t ci/chatbot ./services/chatbot
+          docker build -t ci/frontend ./frontend

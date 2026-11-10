@@ -6,6 +6,7 @@ import pytest
 
 from chat.models import Conversation, Message
 from chat.services import ask_chatbot
+from tenants.context import default_business
 
 pytestmark = pytest.mark.django_db
 URL = "/api/chat/messages/"
@@ -17,7 +18,7 @@ NO_MATCH = {"answer": "La derivaré a un asesor.", "category": None, "matched": 
 
 @pytest.fixture
 def chatbot():
-    with patch("chat.views.ask_chatbot", return_value=MATCH) as mock:
+    with patch("chat.conversation.ask_chatbot", return_value=MATCH) as mock:
         yield mock
 
 
@@ -52,12 +53,14 @@ def test_first_message_creates_conversation_and_stores_both_messages(
 def test_backend_sends_only_active_faqs_to_chatbot(cliente_api, chatbot, faq):
     from faqs.models import FAQ
 
-    FAQ.objects.create(category="x", question="q", answer="a", keywords="k", is_active=False)
+    FAQ.objects.create(business=default_business(), category="x", question="q", answer="a", keywords="k", is_active=False)
     send(cliente_api)
-    chatbot.assert_called_once_with(
-        "¿Cuál es el horario?",
-        [{"category": "horarios", "answer": faq.answer, "keywords": ["horario", "atención"]}],
-    )
+    chatbot.assert_called_once()
+    text, faqs, bot_settings = chatbot.call_args.args
+    assert text == "¿Cuál es el horario?"
+    assert faqs == [{"category": "horarios", "answer": faq.answer, "keywords": ["horario", "atención"]}]
+    # Con la configuración del negocio, no textos fijos de una tienda.
+    assert bot_settings["business_name"] == "Black Dog Store"
 
 
 def test_follow_up_message_reuses_conversation(cliente_api, chatbot):
@@ -94,7 +97,7 @@ def test_validates_body(cliente_api, chatbot, body):
 
 
 def test_cannot_post_into_another_users_conversation(cliente_api, make_user, chatbot):
-    other = Conversation.objects.create(user=make_user("otra@example.com"))
+    other = Conversation.objects.create(business=default_business(), user=make_user("otra@example.com"))
     response = send(cliente_api, conversation_id=other.id)
     assert response.status_code == 404
     assert not Message.objects.exists()
@@ -110,7 +113,7 @@ def test_chatbot_down_returns_503_and_stores_nothing(cliente_api):
 
 
 def test_unexpected_error_returns_500_json_without_details(cliente_api):
-    with patch("chat.views.ask_chatbot", side_effect=RuntimeError("detalle interno secreto")):
+    with patch("chat.conversation.ask_chatbot", side_effect=RuntimeError("detalle interno secreto")):
         response = send(cliente_api)
     assert response.status_code == 500
     assert response.json() == {
@@ -138,8 +141,8 @@ def test_ask_chatbot_posts_json_contract():
 
 # ---------- historial ----------
 def test_cliente_sees_only_own_conversations(cliente_api, cliente, make_user):
-    own = Conversation.objects.create(user=cliente)
-    other = Conversation.objects.create(user=make_user("otra@example.com"))
+    own = Conversation.objects.create(business=default_business(), user=cliente)
+    other = Conversation.objects.create(business=default_business(), user=make_user("otra@example.com"))
     body = cliente_api.get(CONVERSATIONS).json()
     assert [c["id"] for c in body["results"]] == [own.id]
     assert cliente_api.get(f"{CONVERSATIONS}{other.id}/").status_code == 404
@@ -147,7 +150,7 @@ def test_cliente_sees_only_own_conversations(cliente_api, cliente, make_user):
 
 @pytest.mark.parametrize("client_fixture", ["asesor_api", "admin_api"])
 def test_asesor_and_admin_see_all_conversations(request, client_fixture, cliente):
-    Conversation.objects.create(user=cliente)
+    Conversation.objects.create(business=default_business(), user=cliente)
     client = request.getfixturevalue(client_fixture)
     assert client.get(CONVERSATIONS).json()["count"] == 1
 
@@ -192,8 +195,8 @@ def test_latest_is_persisted_in_database(cliente_api, chatbot):
 
 
 def test_latest_picks_most_recent_conversation(cliente_api, cliente):
-    Conversation.objects.create(user=cliente)
-    newest = Conversation.objects.create(user=cliente)
+    Conversation.objects.create(business=default_business(), user=cliente)
+    newest = Conversation.objects.create(business=default_business(), user=cliente)
     assert cliente_api.get(LATEST).json()["id"] == newest.id
 
 
@@ -210,7 +213,7 @@ def test_latest_requires_authentication(api):
 @pytest.mark.parametrize("client_fixture", ["cliente_api", "asesor_api", "admin_api"])
 def test_latest_never_returns_another_users_conversation(request, client_fixture, make_user):
     # Aunque asesor y administrador pueden listar todas, su chat solo carga las propias.
-    other = Conversation.objects.create(user=make_user("otra@example.com"))
+    other = Conversation.objects.create(business=default_business(), user=make_user("otra@example.com"))
     Message.objects.create(conversation=other, sender="cliente", content="dato privado")
     client = request.getfixturevalue(client_fixture)
     response = client.get(LATEST)
@@ -221,7 +224,7 @@ def test_latest_never_returns_another_users_conversation(request, client_fixture
 def test_cliente_cannot_read_or_continue_another_users_conversation(
     cliente_api, make_user, chatbot
 ):
-    other = Conversation.objects.create(user=make_user("otra@example.com"))
+    other = Conversation.objects.create(business=default_business(), user=make_user("otra@example.com"))
     Message.objects.create(conversation=other, sender="cliente", content="dato privado")
     detail_response = cliente_api.get(f"{CONVERSATIONS}{other.id}/")
     assert detail_response.status_code == 404

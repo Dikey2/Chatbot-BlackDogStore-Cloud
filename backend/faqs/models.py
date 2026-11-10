@@ -2,8 +2,17 @@ from django.db import models
 
 
 class FAQ(models.Model):
-    """Pregunta frecuente administrada (RF-04). El chatbot responde con `answer`."""
+    """Pregunta frecuente administrada (RF-04). El chatbot responde con `answer`.
 
+    Pertenece a UN negocio: el chatbot de un negocio nunca usa FAQ de otro.
+    """
+
+    # null=True SOLO en la base (compatibilidad hacia atrás): la versión anterior,
+    # que no conoce este campo, puede seguir creando FAQ durante un rollback. La
+    # aplicación siempre lo completa y `asignar_negocio_piloto` repara los huérfanos.
+    business = models.ForeignKey(
+        "tenants.Business", on_delete=models.CASCADE, related_name="faqs", null=True
+    )
     category = models.CharField("categoría", max_length=50, db_index=True)
     question = models.CharField("pregunta", max_length=255)
     answer = models.TextField("respuesta")
@@ -18,6 +27,10 @@ class FAQ(models.Model):
 
     class Meta:
         ordering = ["category", "id"]
+        indexes = [
+            # FAQ activas de un negocio: lo que lee el chatbot en cada mensaje.
+            models.Index(fields=["business", "is_active", "category"], name="faq_negocio_activa_idx"),
+        ]
 
     def __str__(self):
         return self.question

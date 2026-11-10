@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Café Aurora (ficticio)</title>
+  <meta name="description" content="Segunda web de demostración de la plataforma de chatbots. Negocio y datos ficticios.">
+  <style>
+    /* Estilos propios de la página: el widget no debe heredarlos ni romperlos. */
+    :root { --cream: #fbf5ec; --brown: #7c2d12; --ink: #2b1a12; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Georgia, "Times New Roman", serif; background: var(--cream); color: var(--ink); line-height: 1.6; }
+    header { background: var(--brown); color: #fff; padding: 1.25rem 1rem; }
+    header .wrap, main, footer { max-width: 60rem; margin: 0 auto; }
+    header h1 { margin: 0; font-size: 1.6rem; letter-spacing: .02em; }
+    nav a { color: #fde7d3; margin-right: 1rem; }
+    main { padding: 2rem 1rem; }
+    .hero { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); align-items: center; }
+    .card { background: #fff; border: 1px solid #ead8c3; border-radius: 14px; padding: 1.25rem; }
+    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); margin-top: 1.5rem; }
+    button, .btn { background: var(--brown); color: #fff; border: 0; border-radius: 999px; padding: .7rem 1.2rem; font: inherit; cursor: pointer; }
+    /* Reglas agresivas a propósito: comprueban que el widget está aislado. */
+    div { font-size: 17px; }
+    button { text-transform: uppercase; }
+    .notice { background: #fff7d6; border: 1px dashed #c69214; padding: .75rem 1rem; border-radius: 10px; }
+    footer { padding: 2rem 1rem; color: #7a5a48; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>☕ Café Aurora</h1>
+      <nav><a href="#carta">Carta</a><a href="#visitanos">Visítanos</a></nav>
+    </div>
+  </header>
+  <main>
+    <p class="notice"><strong>Web de demostración.</strong> Negocio, carta y datos <strong>ficticios</strong>. Sirve para comprobar que la plataforma atiende a un segundo negocio con su propio chatbot, FAQ y conversaciones.</p>
+    <section class="hero">
+      <div>
+        <h2>Café de especialidad y postres caseros</h2>
+        <p>Pregúntale a Aurora, nuestra asistente, usando el botón de la esquina inferior derecha. No necesitas crear una cuenta.</p>
+        <button type="button" id="abrir-chat">Abrir chat</button>
+      </div>
+      <div class="card">
+        <h3>Prueba preguntando</h3>
+        <ul>
+          <li>¿Qué ofrecen en la carta?</li>
+          <li>¿Aceptan reservas?</li>
+          <li>¿Tienen wifi?</li>
+          <li>Quiero hablar con un encargado</li>
+        </ul>
+      </div>
+    </section>
+    <section id="carta" class="grid">
+      <div class="card"><h3>Espresso</h3><p>DATO FICTICIO</p></div>
+      <div class="card"><h3>Capuchino</h3><p>DATO FICTICIO</p></div>
+      <div class="card"><h3>Torta de chocolate</h3><p>DATO FICTICIO</p></div>
+    </section>
+    <section id="visitanos">
+      <h2>Visítanos</h2>
+      <p>Dirección y horario: consulta a la asistente; solo responde lo que el negocio configuró.</p>
+    </section>
+  </main>
+  <footer>Café Aurora es un negocio ficticio de demostración.</footer>
+
+  <!-- Instalación del chatbot: el mismo código que genera el panel del negocio. -->
+  <script src="http://localhost:8010/widget.js" data-chatbot-id="bd_demo_cafe" defer></script>
+  <!-- Cargarlo dos veces no duplica el widget. -->
+  <script src="http://localhost:8010/widget.js" data-chatbot-id="bd_demo_cafe" defer></script>
+  <script>
+    document.getElementById("abrir-chat").addEventListener("click", function () {
+      if (window.BDChatbot) window.BDChatbot.open("bd_demo_cafe");
+    });
+  </script>
+</body>
+</html>

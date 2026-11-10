@@ -1,0 +1,40 @@
+ Container blackdog-saas-locust-run-756eef81e7a9 Creating 
+ Container blackdog-saas-locust-run-756eef81e7a9 Created 
+[2026-11-10 19:07:59,399] e16e5e7e7a8f/INFO/locust.main: Starting Locust 2.46.7
+[2026-11-10 19:07:59,401] e16e5e7e7a8f/INFO/locust.main: Run time limit set to 1800 seconds
+[2026-11-10 19:07:59,402] e16e5e7e7a8f/INFO/locust.runners: Ramping to 100 users at a rate of 20.00 per second
+[2026-11-10 19:08:03,413] e16e5e7e7a8f/INFO/locust.runners: All users spawned: {"Lectura": 34, "LecturaAsesor": 33, "Widget": 33} (100 total users)
+[2026-11-10 19:08:45,820] e16e5e7e7a8f/INFO/locust.main: Shutting down (exit code 0)
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+POST     /api/auth/login/                                                                  67     0(0.00%) |   1344     351    2427   1400 |    1.45        0.00
+GET      /api/chat/conversations/ (propias)                                               773     0(0.00%) |    124       9    2074     79 |   16.69        0.00
+GET      /api/chat/conversations/?status=[estado]&page=[n]                               3300     0(0.00%) |    137      10    1678     87 |   71.23        0.00
+GET      /api/chat/conversations/latest/                                                  724     0(0.00%) |    143      10    1984     86 |   15.63        0.00
+GET      /api/faqs/                                                                      1142     0(0.00%) |    147       8    2059     90 |   24.65        0.00
+GET      /api/health/                                                                     373     0(0.00%) |    114       3    1977     75 |    8.05        0.00
+GET      /api/users/me/                                                                   364     0(0.00%) |    120      10    2047     88 |    7.86        0.00
+GET      /api/widget/[id]/config/                                                          33     0(0.00%) |   1620    1006    2083   1600 |    0.71        0.00
+GET      /api/widget/[id]/conversation/                                                  1822     0(0.00%) |    123      10    2068     85 |   39.33        0.00
+POST     /api/widget/[id]/messages/                                                      1369     0(0.00%) |    136      18    1990     99 |   29.55        0.00
+POST     /api/widget/[id]/session/                                                         33     0(0.00%) |   1121     376    1534   1300 |    0.71        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                     10000     0(0.00%) |    150       3    2427     89 |  215.85        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+POST     /api/auth/login/                                                                     1400   1700   1700   1800   2100   2100   2100   2400   2400   2400   2400     67
+GET      /api/chat/conversations/ (propias)                                                     79    110    140    170    260    360    460   1100   2100   2100   2100    773
+GET      /api/chat/conversations/?status=[estado]&page=[n]                                      87    130    160    180    280    380   1100   1300   1600   1700   1700   3300
+GET      /api/chat/conversations/latest/                                                        86    130    160    190    290    380    930   1500   2000   2000   2000    724
+GET      /api/faqs/                                                                             90    130    160    190    290    390   1000   1300   2100   2100   2100   1142
+GET      /api/health/                                                                           75    110    140    160    250    330    410    890   2000   2000   2000    373
+GET      /api/users/me/                                                                         88    120    150    170    250    350    400    690   2000   2000   2000    364
+GET      /api/widget/[id]/config/                                                             1600   1800   1800   2100   2100   2100   2100   2100   2100   2100   2100     33
+GET      /api/widget/[id]/conversation/                                                         85    120    150    170    240    350    430   1000   2000   2100   2100   1822
+POST     /api/widget/[id]/messages/                                                             99    140    170    190    270    380    460    520   1500   2000   2000   1369
+POST     /api/widget/[id]/session/                                                            1300   1300   1300   1400   1400   1500   1500   1500   1500   1500   1500     33
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                             89    130    160    180    290    390   1200   1400   2100   2400   2400  10000
+

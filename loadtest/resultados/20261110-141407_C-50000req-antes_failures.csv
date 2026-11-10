@@ -1,0 +1,2 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,/api/chat/conversations/?status=[estado]&page=[n],HTTPError('404 Client Error: Not Found for url: /api/chat/conversations/?status=[estado]&page=[n]'),117,2026-11-10T19:14:17Z,2026-11-10T19:18:00Z

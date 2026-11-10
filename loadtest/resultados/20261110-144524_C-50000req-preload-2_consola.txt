@@ -1,0 +1,42 @@
+ Container blackdog-saas-locust-run-ac7fcf962202 Creating 
+ Container blackdog-saas-locust-run-ac7fcf962202 Created 
+[2026-11-10 19:41:39,303] 170db64ae7d7/INFO/locust.main: Starting Locust 2.46.7
+[2026-11-10 19:41:39,306] 170db64ae7d7/INFO/locust.main: Run time limit set to 1800 seconds
+[2026-11-10 19:41:39,308] 170db64ae7d7/INFO/locust.runners: Ramping to 100 users at a rate of 20.00 per second
+[2026-11-10 19:41:43,325] 170db64ae7d7/INFO/locust.runners: All users spawned: {"Lectura": 34, "LecturaAsesor": 33, "Widget": 33} (100 total users)
+[2026-11-10 19:48:39,749] 170db64ae7d7/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-24" at 0xffffb02785e0: _run>
+[2026-11-10 19:48:39,750] 170db64ae7d7/ERROR/locust.runners: While stopping users, we encountered a user that didn't have proper args <Greenlet "Greenlet-24" at 0xffffb02785e0: _run>
+[2026-11-10 19:48:39,888] 170db64ae7d7/INFO/locust.main: Shutting down (exit code 0)
+Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+POST     /api/auth/login/                                                                  67     0(0.00%) |   1418     361    2478   1400 |    0.16        0.00
+GET      /api/chat/conversations/ (propias)                                              3781     0(0.00%) |     63       5    4948     19 |    8.99        0.00
+GET      /api/chat/conversations/?status=[estado]&page=[n]                              16412     0(0.00%) |     64       6    5027     21 |   39.03        0.00
+GET      /api/chat/conversations/latest/                                                 3865     0(0.00%) |     64       5    3481     19 |    9.19        0.00
+GET      /api/faqs/                                                                      5740     0(0.00%) |     60       4    4981     17 |   13.65        0.00
+GET      /api/health/                                                                    1859     0(0.00%) |     64       2    4963     15 |    4.42        0.00
+GET      /api/users/me/                                                                  1913     0(0.00%) |     55       5    1993     19 |    4.55        0.00
+GET      /api/widget/[id]/config/                                                          33     0(0.00%) |   1681    1082    2237   1700 |    0.08        0.00
+GET      /api/widget/[id]/conversation/                                                  9264     0(0.00%) |     62       5    4984     20 |   22.03        0.00
+POST     /api/widget/[id]/messages/                                                      7014     0(0.00%) |     70      12    4944     31 |   16.68        0.00
+POST     /api/widget/[id]/session/                                                         33     0(0.00%) |   1172     291    1673   1400 |    0.08        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                     49981     0(0.00%) |     67       2    5027     22 |  118.87        0.00
+
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+POST     /api/auth/login/                                                                     1400   1700   1800   1900   2200   2300   2300   2500   2500   2500   2500     67
+GET      /api/chat/conversations/ (propias)                                                     19     36     57     75    140    230    410    730   2000   4900   4900   3781
+GET      /api/chat/conversations/?status=[estado]&page=[n]                                      21     39     59     76    130    220    430    750   1600   5000   5000  16412
+GET      /api/chat/conversations/latest/                                                        19     36     55     73    130    220    430    880   2100   3500   3500   3865
+GET      /api/faqs/                                                                             17     34     53     70    120    210    410    720   2100   5000   5000   5740
+GET      /api/health/                                                                           15     31     52     69    130    230    500   1000   4900   5000   5000   1859
+GET      /api/users/me/                                                                         19     36     56     74    130    210    320    450   1600   2000   2000   1913
+GET      /api/widget/[id]/config/                                                             1700   1700   2000   2200   2200   2200   2200   2200   2200   2200   2200     33
+GET      /api/widget/[id]/conversation/                                                         20     36     56     74    130    220    410    680   1900   5000   5000   9264
+POST     /api/widget/[id]/messages/                                                             31     49     72     88    140    220    340    660   1600   4900   4900   7014
+POST     /api/widget/[id]/session/                                                            1400   1400   1400   1400   1400   1700   1700   1700   1700   1700   1700     33
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                             22     39     60     77    140    230    440    850   2000   5000   5000  49981
+

@@ -11,6 +11,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?definir en .env}
     volumes:
       - db_data:/var/lib/postgresql/data
+    # Si un proceso termina por error, Docker lo vuelve a iniciar.
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -22,8 +24,10 @@ services:
     environment:
       CHATBOT_SECRET_KEY: ${CHATBOT_SECRET_KEY:?definir en .env}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      CHATBOT_WORKERS: ${CHATBOT_WORKERS:-2}
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:${CHATBOT_PORT:-8001}:8000"
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=2)"]
       interval: 5s
@@ -46,10 +50,39 @@ services:
       THROTTLE_USER: ${THROTTLE_USER:-120/min}
       THROTTLE_AUTH: ${THROTTLE_AUTH:-10/min}
       THROTTLE_CHAT: ${THROTTLE_CHAT:-30/min}
+      THROTTLE_WIDGET_SESSION: ${THROTTLE_WIDGET_SESSION:-10/min}
+      THROTTLE_WIDGET_MESSAGE: ${THROTTLE_WIDGET_MESSAGE:-20/min}
+      THROTTLE_WIDGET_MESSAGE_IP: ${THROTTLE_WIDGET_MESSAGE_IP:-60/min}
+      THROTTLE_WIDGET_READ: ${THROTTLE_WIDGET_READ:-120/min}
+      WIDGET_MAX_MESSAGES_PER_SESSION: ${WIDGET_MAX_MESSAGES_PER_SESSION:-200}
       TOKEN_TTL_HOURS: ${TOKEN_TTL_HOURS:-8}
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-1}
+      POSTGRES_CONN_MAX_AGE: ${POSTGRES_CONN_MAX_AGE:-60}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      NUM_PROXIES: ${NUM_PROXIES:-}
+      # Plataforma multiempresa y widget.
+      WIDGET_PREVIEW_ORIGINS: ${WIDGET_PREVIEW_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      SEED_PILOT_ORIGINS: ${SEED_PILOT_ORIGINS:-http://localhost:3002,http://127.0.0.1:3002}
+      SEED_SECOND_ORIGINS: ${SEED_SECOND_ORIGINS:-http://localhost:8090,http://127.0.0.1:8090}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SLOW_REQUEST_MS: ${SLOW_REQUEST_MS:-1000}
+      DEFAULT_BUSINESS_SLUG: ${DEFAULT_BUSINESS_SLUG:-black-dog-store}
+      WIDGET_SESSION_TTL_HOURS: ${WIDGET_SESSION_TTL_HOURS:-24}
+      CATALOG_ALLOWED_HOSTS: ${CATALOG_ALLOWED_HOSTS:-}
+      WIDGET_NUM_PROXIES: ${WIDGET_NUM_PROXIES:-}
+      SEED_PILOT_PUBLIC_ID: ${SEED_PILOT_PUBLIC_ID:-}
+      SEED_SECOND_PUBLIC_ID: ${SEED_SECOND_PUBLIC_ID:-}
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    restart: unless-stopped
+    # Vivo = responde HTTP, aunque sea 503 porque una dependencia está caída.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u, urllib.error as e\ntry: u.urlopen('http://localhost:8000/api/health/', timeout=3)\nexcept e.HTTPError: pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
@@ -60,11 +93,32 @@ services:
     build: ./frontend
     environment:
       API_INTERNAL_URL: http://backend:8000
+      # URL de la API que usa el widget desde el navegador (código de instalación y vista previa).
+      API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:8000}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/mantenimiento').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+
+  # Segunda web ficticia e independiente que instala el widget de otro negocio.
+  # Solo para la demostración: docker compose --profile demo up -d demo-cafe
+  demo-cafe:
+    image: nginx:1.27-alpine
+    profiles: ["demo"]
+    volumes:
+      - ./demo-sites/cafe-aurora:/usr/share/nginx/html:ro
+    ports:
+      - "127.0.0.1:${DEMO_CAFE_PORT:-8090}:80"
+    restart: unless-stopped
 
 volumes:
   db_data:

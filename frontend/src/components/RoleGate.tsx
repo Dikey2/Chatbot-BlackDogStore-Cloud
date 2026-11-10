@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getSession, type User } from "@/lib/session";
+import { ServiceUnavailable } from "@/components/ServiceUnavailable";
 
 /**
  * Muestra el contenido solo a los roles indicados. La API vuelve a comprobar el
@@ -22,19 +23,18 @@ export async function RoleGate({
   const session = await getSession();
   if (session.state === "anonymous") redirect(session.expired ? "/login?motivo=expirada" : "/login");
   if (session.state === "unavailable") {
-    return (
-      <p className="error" role="alert">
-        No se pudo conectar con el servidor. <Link href={retryHref}>Reintentar</Link>
-      </p>
-    );
+    return <ServiceUnavailable reason={session.reason} retryHref={retryHref} />;
   }
-  if (!roles.includes(session.user.role)) {
+  // "plataforma" = superadministrador de la plataforma (no depende del negocio elegido).
+  const allowed =
+    roles.includes(session.user.role) || (roles.includes("plataforma") && session.user.is_platform_admin === true);
+  if (!allowed) {
     return (
       <div data-testid="role-forbidden">
         <p className="error" role="alert">
           {forbiddenMessage}
         </p>
-        <Link href="/chat">Ir al chat</Link>
+        <Link href="/chat">Chat</Link>
       </div>
     );
   }
