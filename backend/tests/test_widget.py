@@ -305,3 +305,26 @@ def test_widget_script_retries_config_on_transient_errors_only(api):
     # pero nunca ante 403/404 (origen no autorizado o chatbot inexistente).
     assert "CONFIG_RETRY_DELAYS_MS = [3000, 8000, 15000]" in body
     assert "error.status >= 500" in body and "loadConfig(attempt + 1)" in body
+
+
+
+@override_settings(WIDGET_NUM_PROXIES=1)
+def test_spoofed_forwarded_for_cannot_bypass_widget_ip_limits(api, shop):
+    # Detrás de un proxy (Render): el visitante inventa IPs en X-Forwarded-For y el
+    # proxy agrega la real al final. Solo cuenta la real.
+    statuses = [
+        api.post(url(shop, "session/"), {}, format="json", HTTP_ORIGIN=ORIGIN,
+                 HTTP_X_FORWARDED_FOR=f"10.0.0.{i}, 203.0.113.7").status_code
+        for i in range(11)
+    ]
+    assert statuses[:10] == [201] * 10 and statuses[10] == 429
+
+
+@override_settings(WIDGET_NUM_PROXIES=None)
+def test_without_proxy_setting_forwarded_for_is_ignored(api, shop):
+    statuses = [
+        api.post(url(shop, "session/"), {}, format="json", HTTP_ORIGIN=ORIGIN,
+                 HTTP_X_FORWARDED_FOR=f"10.0.0.{i}").status_code
+        for i in range(11)
+    ]
+    assert statuses[10] == 429

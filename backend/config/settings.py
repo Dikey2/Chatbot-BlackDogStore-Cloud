@@ -318,6 +318,9 @@ from datetime import timedelta  # noqa: E402
 WIDGET_SESSION_TTL = timedelta(hours=float(os.environ.get("WIDGET_SESSION_TTL_HOURS", "24")))
 # Mensajes máximos por sesión de visitante (control de abuso).
 WIDGET_MAX_MESSAGES_PER_SESSION = int(os.environ.get("WIDGET_MAX_MESSAGES_PER_SESSION", "200"))
+# Proxies delante de la API cuando el NAVEGADOR llama al widget (Render = 1). Distinto
+# de NUM_PROXIES, que cuenta también el proxy del frontend. Vacío = solo REMOTE_ADDR.
+WIDGET_NUM_PROXIES = int(os.environ.get("WIDGET_NUM_PROXIES") or "0") or None
 # Hosts que el conector de catálogo puede consultar (lista blanca, sin comodines).
 CATALOG_ALLOWED_HOSTS = [h.lower() for h in env_list("CATALOG_ALLOWED_HOSTS", "")]
 # Orígenes de la propia plataforma que pueden cargar cualquier widget (vista previa del panel).

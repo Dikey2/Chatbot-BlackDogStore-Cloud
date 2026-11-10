@@ -54,6 +54,11 @@ Se usa otro Web Service gratuito de Render, que ya conocen y permite Docker. No 
    | `POSTGRES_CONN_MAX_AGE` | `60` |
    | `DJANGO_ALLOWED_HOSTS` | `<backend>.onrender.com` |
    | `DJANGO_HTTPS` | `true` (cookies seguras, HSTS de 1 h y redirección a HTTPS; `/api/health/` queda exento) |
+   | `WIDGET_NUM_PROXIES` | `1` (plataforma multiempresa: el widget llama a la API directo desde el navegador; con `NUM_PROXIES=2` un visitante podría falsear su IP y saltarse los límites del widget) |
+   | `WIDGET_PREVIEW_ORIGINS` | `https://<frontend>.onrender.com` (vista previa del widget en el panel) |
+   | `CATALOG_ALLOWED_HOSTS` | Opcional: host de la API de productos de la tienda, para el conector de catálogo |
+
+   Frontend: `API_PUBLIC_URL` = `https://<backend>.onrender.com` (código de instalación y vista previa del widget).
 
 4. Desplegar primero el backend, comprobar `https://<backend>.onrender.com/api/health/` (esperado: 200 y `"status": "ok"`) y después crear el frontend.
 

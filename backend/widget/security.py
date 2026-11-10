@@ -96,10 +96,30 @@ def visitor_session(request, business):
     return session
 
 
+def visitor_ip(request):
+    """IP del visitante para los límites del widget.
+
+    El widget llama a la API directo desde el navegador: delante solo están los
+    proxies de la plataforma (Render = 1). Se toma la dirección que agregó el
+    último de esos ``WIDGET_NUM_PROXIES`` proxies, nunca una que pueda escribir el
+    visitante en ``X-Forwarded-For``. Sin la variable, solo cuenta REMOTE_ADDR.
+    """
+    remote = request.META.get("REMOTE_ADDR", "")
+    proxies = settings.WIDGET_NUM_PROXIES
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if not proxies or not xff:
+        return remote
+    addrs = [a.strip() for a in xff.split(",") if a.strip()]
+    return addrs[-min(proxies, len(addrs))] if addrs else remote
+
+
 class WidgetSessionThrottle(SimpleRateThrottle):
     """Sesiones nuevas por IP: frena la creación masiva de visitantes."""
 
     scope = "widget_session"
+
+    def get_ident(self, request):
+        return visitor_ip(request)
 
     def get_cache_key(self, request, view):
         return self.cache_format % {"scope": self.scope, "ident": self.get_ident(request)}
@@ -115,6 +135,9 @@ class WidgetMessageThrottle(SimpleRateThrottle):
     """Mensajes por visitante (su token) y, sin token, por IP."""
 
     scope = "widget_message"
+
+    def get_ident(self, request):
+        return visitor_ip(request)
 
     def get_cache_key(self, request, view):
         token = request.META.get(TOKEN_HEADER, "")
