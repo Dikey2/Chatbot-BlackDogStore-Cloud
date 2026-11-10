@@ -61,6 +61,8 @@ services:
       SEED_PILOT_ORIGINS: ${SEED_PILOT_ORIGINS:-http://localhost:3002,http://127.0.0.1:3002}
       SEED_SECOND_ORIGINS: ${SEED_SECOND_ORIGINS:-http://localhost:8090,http://127.0.0.1:8090}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SEED_PILOT_PUBLIC_ID: ${SEED_PILOT_PUBLIC_ID:-}
+      SEED_SECOND_PUBLIC_ID: ${SEED_SECOND_PUBLIC_ID:-}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     restart: unless-stopped
@@ -96,6 +98,17 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  # Segunda web ficticia e independiente que instala el widget de otro negocio.
+  # Solo para la demostración: docker compose --profile demo up -d demo-cafe
+  demo-cafe:
+    image: nginx:1.27-alpine
+    profiles: ["demo"]
+    volumes:
+      - ./demo-sites/cafe-aurora:/usr/share/nginx/html:ro
+    ports:
+      - "127.0.0.1:${DEMO_CAFE_PORT:-8090}:80"
+    restart: unless-stopped
 
 volumes:
   db_data:

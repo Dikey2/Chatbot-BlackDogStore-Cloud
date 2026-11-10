@@ -5,7 +5,11 @@
  *   <script src="https://PLATAFORMA/widget.js" data-chatbot-id="bd_xxx" defer></script>
  *
  * Opcionales: data-position="left" (por defecto, right), data-offset-bottom="96",
- * data-api-url="https://api.plataforma" (si la API no está en el mismo origen que el script).
+ * data-api-url="https://api.plataforma" (si la API no está en el mismo origen que el script),
+ * data-launcher="none" (la página usa su propio botón y llama a window.BDChatbot.open()).
+ *
+ * API para la página anfitriona: window.BDChatbot.open() / .close() / .toggle() y el
+ * evento "bdchatbot:ready" en window cuando el widget está listo.
  *
  * Diseño:
  * - Shadow DOM: la página anfitriona no altera el widget y el widget no altera la página.
@@ -36,6 +40,7 @@
   }
   var base = apiBase + "/api/widget/" + encodeURIComponent(publicId);
   var position = script.getAttribute("data-position") === "left" ? "left" : "right";
+  var ownLauncher = script.getAttribute("data-launcher") !== "none";
   var offsetBottom = parseInt(script.getAttribute("data-offset-bottom") || "20", 10);
   if (!(offsetBottom >= 0 && offsetBottom <= 400)) offsetBottom = 20;
 
@@ -190,7 +195,7 @@
       "[hidden]{display:none!important;}",
       ".launcher:focus-visible,button:focus-visible,textarea:focus-visible{outline:3px solid #2563eb;outline-offset:2px;}",
       ".badge{position:absolute;top:-2px;right:-2px;min-width:20px;height:20px;border-radius:10px;background:#dc2626;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;}",
-      ".panel{position:fixed;" + side + "bottom:" + (offsetBottom + 70) + "px;width:370px;max-width:calc(100vw - 24px);height:560px;max-height:calc(100vh - " + (offsetBottom + 90) + "px);",
+      ".panel{position:fixed;" + side + "bottom:" + (offsetBottom + (ownLauncher ? 70 : 0)) + "px;width:370px;max-width:calc(100vw - 24px);height:560px;max-height:calc(100vh - " + (offsetBottom + 90) + "px);",
       "background:#fff;color:#111;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.3);display:flex;flex-direction:column;overflow:hidden;z-index:2147483001;",
       "opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .18s,transform .18s;}",
       ".panel.open{opacity:1;transform:none;pointer-events:auto;}",
@@ -281,7 +286,7 @@
     ui.launcher.appendChild(ui.badge);
 
     root.appendChild(ui.panel);
-    root.appendChild(ui.launcher);
+    if (ownLauncher) root.appendChild(ui.launcher);
     document.body.appendChild(host);
 
     ui.launcher.addEventListener("click", function () { toggle(!state.open); });
@@ -386,8 +391,10 @@
       ui.badge.setAttribute("hidden", "hidden");
       setTimeout(function () { try { ui.input.focus(); } catch (e) { /* ignorado */ } }, 50);
       refresh();
-    } else {
+    } else if (ownLauncher) {
       ui.launcher.focus();
+    } else if (state.opener && state.opener.focus) {
+      state.opener.focus();
     }
     schedulePoll(open ? POLL_OPEN_MS : POLL_CLOSED_MS);
   }
@@ -477,6 +484,27 @@
       });
   }
 
+  // ------------------------------------------------------------------ API pública
+  function expose() {
+    var api = window.BDChatbot || {};
+    var instances = api._instances || {};
+    instances[publicId] = { toggle: toggle, isOpen: function () { return state.open; } };
+    var pick = function (id) { return instances[id || Object.keys(instances)[0]]; };
+    window.BDChatbot = {
+      _instances: instances,
+      open: function (id) {
+        var it = pick(id);
+        if (it) { state.opener = document.activeElement; it.toggle(true); }
+      },
+      close: function (id) { var it = pick(id); if (it) it.toggle(false); },
+      toggle: function (id) { var it = pick(id); if (it) it.toggle(!it.isOpen()); },
+      isOpen: function (id) { var it = pick(id); return !!(it && it.isOpen()); }
+    };
+    try {
+      window.dispatchEvent(new CustomEvent("bdchatbot:ready", { detail: { id: publicId } }));
+    } catch (e) { /* navegadores antiguos */ }
+  }
+
   // ------------------------------------------------------------------ arranque
   function start() {
     load();
@@ -484,6 +512,7 @@
       .then(function (config) {
         state.config = config;
         build(config);
+        expose();
         if (state.token) refresh().then(function () { schedulePoll(POLL_CLOSED_MS); });
       })
       .catch(function (error) {

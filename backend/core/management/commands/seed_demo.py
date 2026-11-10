@@ -12,8 +12,11 @@ Crea:
 
 Orígenes autorizados del widget (opcionales, separados por coma):
 SEED_PILOT_ORIGINS y SEED_SECOND_ORIGINS.
+Ids públicos fijos para las webs de demostración (opcionales):
+SEED_PILOT_PUBLIC_ID y SEED_SECOND_PUBLIC_ID. El id público no es un secreto.
 """
 import os
+import re
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -126,6 +129,12 @@ class Command(BaseCommand):
         ):
             for origin in _origins(env, default):
                 BusinessDomain.objects.get_or_create(business=business, origin=origin)
+
+        for business, env in ((pilot, "SEED_PILOT_PUBLIC_ID"), (second, "SEED_SECOND_PUBLIC_ID")):
+            fixed = os.environ.get(env, "").strip()
+            if fixed and re.fullmatch(r"bd_[A-Za-z0-9_-]{4,36}", fixed) and business.public_id != fixed:
+                Business.objects.filter(pk=business.pk).update(public_id=fixed)
+                business.public_id = fixed
 
         for business in (pilot, second):
             self.stdout.write(f"{business.name}: data-chatbot-id=\"{business.public_id}\"")
