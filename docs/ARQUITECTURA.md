@@ -9,7 +9,22 @@ Leyenda de origen: **[D]** documentado en los requerimientos, **[V]** verificado
 | Interfaz web | `frontend/` | Next.js 16 + TypeScript | Chat, registro, login, panel | 3000 |
 | API principal | `backend/` | Django 5.2 + DRF, gunicorn | Usuarios, roles, FAQ, historial, auditoría, CORS, coordinación | 8000 |
 | Chatbot | `services/chatbot/` | Django + DRF con gunicorn, sin base de datos | Elegir la respuesta entre las FAQ que recibe y decidir la derivación | 8001 |
-| Base de datos | servicio `db` | PostgreSQL 17 | Persistencia académica | no publicado |
+| Base de datos | servicio `db` | PostgreSQL 17 (Neon 18.6 en producción) | Persistencia académica | no publicado |
+| Widget flotante | `backend/widget/static_src/widget.js` | JavaScript sin dependencias, Shadow DOM | Chat instalable en cualquier sitio con una etiqueta `<script>` | servido por el backend en `/widget.js` |
+
+### Plataforma multiempresa (entrega del 100 %) [V]
+
+- Cada negocio (`tenants.Business`) tiene sus FAQ, conversaciones, equipo, dominios autorizados y
+  configuración del asistente. Black Dog Store es el negocio piloto, no un caso especial del código.
+- El servidor resuelve el negocio (`tenants.context.resolve`). La cabecera `X-Business-Id` solo elige
+  entre los negocios del propio usuario; nunca autoriza.
+- Roles por negocio (`Membership`): administrador y asesor. El superadministrador de la plataforma
+  (`is_superuser`) ve todos los negocios y su auditoría (`/plataforma`).
+- Un recurso de otro negocio responde igual que uno inexistente (404).
+
+Flujo del widget: visitante → `widget.js` en el sitio del negocio → API Django (CORS solo para los
+dominios autorizados de ese negocio) → chatbot → respuesta. El visitante usa una sesión anónima con
+token propio (`X-Visitor-Token`), sin cookies de terceros.
 
 Flujo **[D]**: cliente → Next.js → API Django → chatbot → respuesta. Solo la API Django escribe en PostgreSQL.
 
@@ -19,15 +34,17 @@ flowchart LR
     F -->|REST| B[backend Django :8000]
     B -->|REST interno| H[chatbot :8000]
     B --> D[(PostgreSQL)]
+    W[widget.js en el sitio del negocio] -->|REST + CORS por negocio| B
+    B -->|catálogo opcional, solo hosts permitidos| K[API de productos del negocio]
 ```
 
 ## 2. Decisiones de diseño
 
 1. **El chatbot usa Django + DRF, igual que la API.** El documento pide "Python / API REST". Usar el mismo framework evita sumar otra tecnología al equipo. **[V]**
 2. **El chatbot no tiene base de datos ni credenciales.** Cumple la regla "el componente de chat no dispondrá de acceso directo a credenciales ni datos privados". Recibe el mensaje y devuelve la respuesta. **[V]**
-3. **Servicio de catálogo: todavía no existe.** No hay contrato de API autorizado. Se propone empezar como módulo simulado dentro de `services/` cuando llegue RF-06, no antes. **[P]**
+3. **Conector de catálogo por negocio** (`chat/catalog.py`). Solo se consulta cuando ninguna FAQ responde. Lee la API de productos que el negocio configura (`catalog_api_url`), solo de hosts en `CATALOG_ALLOWED_HOSTS`, sin seguir redirecciones, con 2,5 s de límite y 1 MB como máximo. Si falla, la consulta pasa a un asesor. El bot nunca inventa precios ni stock: los copia del catálogo (RF-06). **[V]**
 4. **Modelo de usuario propio desde la primera migración** (`users.User` con campo `role`). Cambiar el modelo de usuario después obliga a recrear la base de datos. **[V]**
-5. **El navegador nunca llama a la API.** Los formularios y el chat usan Server Actions de Next.js, que llaman a Django por la red interna de Docker. Por eso no hay CORS que abrir. **[V]**
+5. **La interfaz web no llama a la API desde el navegador.** Los formularios y el chat usan Server Actions de Next.js, que llaman a Django por la red interna. La única excepción es el widget (entrega del 100 %): llama a `/api/widget/…` desde el navegador del visitante, con CORS limitado a los dominios que cada negocio autoriza. **[V]**
 6. **El token de sesión vive en una cookie `httpOnly`** que escribe el servidor de Next.js. El JavaScript de la página no puede leerlo (probado con Playwright). **[V]**
 7. **Autenticación con el token integrado de DRF**, sin bibliotecas extra, con caducidad absoluta de 8 h (`users/authentication.py`). El logout borra el token. **[V]**
 8. **La API Django envía al chatbot las FAQ activas en cada consulta.** El chatbot no guarda contenido ni tiene acceso a la base de datos. **[V]**
@@ -37,6 +54,10 @@ flowchart LR
 12. **Auditoría en una app propia** (`audit`): registro inmutable de accesos, intentos fallidos, accesos denegados y operaciones del administrador y del asesor. Nunca guarda contraseñas, tokens ni contenido de mensajes, y un fallo al auditar no interrumpe la petición. **[V]**
 13. **Conexiones persistentes a PostgreSQL** (`CONN_MAX_AGE=60`). Es la optimización con mayor efecto medido: la mediana de lectura con 100 usuarios bajó de 1000 a 48 ms. **[V]**
 14. **Docker Compose con `restart: unless-stopped` y `healthcheck`** en los cuatro servicios; el frontend espera a que el backend esté `healthy`. **[V]**
+15. **Rate limit con un contador atómico** (`core/throttling.py`): una consulta `UPSERT` por límite en lugar de 4. Bajó la mediana con 100 usuarios de 89-140 ms a 16-52 ms (`PRUEBAS.md` §12). **[V]**
+16. **gunicorn con `--preload` y reciclaje escalonado** (`--max-requests 20000 --max-requests-jitter 4000`): evita pausas de ~45 s cuando varios procesos se reciclan a la vez. **[V]**
+17. **Logs estructurados en JSON** (`core/logging.py`) con `timestamp`, `level`, `service`, `event` y `request_id`. Nunca registran contraseñas, tokens ni el contenido de los mensajes. **[V]**
+18. **Migraciones compatibles con rollback** (expandir/contraer): `business_id` es anulable en la base y `asignar_negocio_piloto` asigna lo creado por una versión anterior (`MIGRACION_SERVIDOR.md`). **[V]**
 
 ## 3. Estructura de carpetas
 
@@ -111,14 +132,31 @@ Ver [API.md](API.md). Modelo de datos: [BASE_DE_DATOS.md](BASE_DE_DATOS.md). Res
 | Extra | VPC | Evaluado, no implementado | `DESPLIEGUE.md` §5 |
 | Extra | Recursos del equipo | Medido | `GUNICORN_WORKERS=8`: +39 % y +85 % req/s (`PRUEBAS.md` §10) |
 
-## 7. Trabajo restante
+## 7. Estado de la entrega del 100 %
 
-1. Publicar el frontend en Render y ajustar `CORS_ALLOWED_ORIGINS`, `NUM_PROXIES` y `DJANGO_HTTPS` en el backend (`DESPLIEGUE.md` §2).
-2. Ejecutar la prueba de carga autorizada contra Render (`DESPLIEGUE.md` §4).
-3. Generar un respaldo de Neon antes de la entrega (`BACKUPS.md`).
+Detalle requisito por requisito, con la evidencia y la distinción entre local y Render: `INFORME_ENTREGA_100.md`.
 
-Para el 100 %: carga de 10 000 a 50 000, logs estructurados, gestión de incidencias y archivos adjuntos (RF-10).
+| Criterio del docente | Estado | Evidencia |
+|---|---|---|
+| Proyecto funcional al 100 % | Implementado y verificado en Render | Plataforma multiempresa, widget en la tienda demo, 22 FAQ reales, catálogo (`PRUEBAS.md` §14) |
+| Pruebas de 10 000 a 50 000 | Implementado y verificado **en local**; en Render no autorizado | `PRUEBAS.md` §12, `loadtest/resultados/`, gráficos en `evidencias/` |
+| Controlar los cuellos de botella | Implementado y verificado | Contador atómico, `--preload`, perfil de carga corregido (`PRUEBAS.md` §12.6) |
+| Logs estructurados | Implementado y verificado (local) | `core/logging.py`, decisión 17 |
+| Errores esperados y caídas | Implementado y verificado | `PRUEBAS.md` §13 (7 escenarios, 0 fallas) y §15 (incidencias) |
+| Extra: CI/CD | Implementado y verificado | `.github/workflows/ci.yml` + SonarCloud; Render despliega `main` |
+| Extra: migración de servidor | Documentado | `MIGRACION_SERVIDOR.md` |
 
-## 8. Dudas abiertas
+Las entregas anteriores siguen vigentes, con dos cambios: el frontend ya está publicado en Render (criterio
+04 del 80 %) y el respaldo de Neon se hizo el 10 de noviembre (`neon_20261110-171155.dump`).
+
+## 8. Trabajo restante
+
+1. Prueba de carga contra Render (`DESPLIEGUE.md` §4): no autorizada por el propietario, para no agotar
+   Render Free ni la cuota de Neon. Todas las campañas de carga son locales.
+2. RF-10, archivos adjuntos con Amazon S3: no implementado. Requiere una cuenta de AWS y credenciales
+   que el equipo no tiene.
+3. Extra «cifrar el código»: no implementado.
+
+## 9. Dudas abiertas
 
 - **Cifras de carga:** se midieron las dos lecturas (solicitudes totales y usuarios concurrentes); conviene igualmente que el docente indique cuál evalúa.
