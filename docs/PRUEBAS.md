@@ -20,6 +20,8 @@ Resultados obtenidos el 13 de octubre de 2026 en el entorno local de Docker Comp
 | Carga del 100 % | Locust 2.46.7 | 10 000 a 50 000 solicitudes con 100 usuarios: 0 fallos después de las correcciones (sección 12) |
 | Resiliencia del 100 % | `infra/pruebas/resiliencia.sh` | 7 escenarios, 0 fallas (sección 13) |
 | Producción en Render | `curl`, solo lectura | Salud, errores, CORS, autenticación y paginación correctos (sección 14) |
+| Carga controlada en Render | Locust 2.46.7, solo lectura | 100, 1 000 y 5 000 solicitudes: 0 fallos; p95 de 340-750 ms (sección 16) |
+| Código ofuscado | `javascript-obfuscator`, pytest, Playwright | Widget ofuscado: 239 pruebas de API y 5/5 Playwright correctas (sección 17) |
 
 ## 1. Pytest
 
@@ -233,9 +235,11 @@ Comprobación en vivo (usuario ficticio `cliente@example.com`; el token se envej
 
 ## 9. Pendiente
 
-- Prueba de carga contra Render: preparada en `DESPLIEGUE.md`, sección 4. No se ejecutó: el propietario
-  no la autorizó, para no agotar Render Free ni la cuota de Neon. Todas las campañas de carga (25 %, 80 %
-  y 100 %) se hicieron en Docker local; en Render se verificó el funcionamiento con lecturas (sección 14).
+- Carga contra Render: se autorizó y ejecutó una prueba **controlada y de solo lectura** de 100, 1 000 y
+  5 000 solicitudes (sección 16). Las cargas de 10 000 a 50 000 se mantienen en Docker local, para no
+  agotar Render Free ni la cuota de Neon.
+- En Render, el límite anónimo de 60/min no se aplicó a peticiones directas (sección 16.4): revisar
+  `THROTTLE_ANON` y `NUM_PROXIES` en el servicio.
 - Con más de 200 usuarios concurrentes escribiendo, el entorno local se satura (sección 10).
 
 ## 10. Entrega del 80 %: pruebas de carga con Locust (29 de octubre de 2026)
@@ -406,7 +410,8 @@ La campaña se ejecutó contra **Docker Compose local**, no contra Render ni Neo
 - Neon Free tiene una cuota mensual de cómputo. Agotarla dejaría la demostración pública sin base de datos.
 - El propietario del proyecto prohibió expresamente las pruebas de carga contra Render y Neon.
 
-El funcionamiento real en Render se comprobó por separado, con consultas de solo lectura (sección 14).
+El funcionamiento real en Render se comprobó por separado, con consultas de solo lectura (sección 14), y
+con una prueba de carga controlada de hasta 5 000 solicitudes autorizada después (sección 16).
 
 | Elemento | Valor |
 |---|---|
@@ -630,3 +635,134 @@ Cada incidencia incluye su causa, la solución aplicada y cómo se comprobó.
 | H | La tienda demo mostró «No pudimos cargar el catálogo» | Su backend (`blackdog-store-demo-api`) estaba dormido; la primera petición tardó 23 s y la tienda recibió 502 mientras arrancaba | Ninguna en código: abrir los servicios unos minutos antes de una demostración (guía de despliegue). Mantenerlos despiertos con un ping no cabe en las 750 h mensuales del plan Free | Ya despierto: 200 en menos de 0,6 s |
 | I | El respaldo de Neon fallaba | `pg_dump` 17 no puede respaldar PostgreSQL 18.6 (Neon) | `infra/backup/respaldar.sh` usa la imagen `postgres:18-alpine` | Respaldo `neon_20261110-171155.dump`, SHA-256 verificado y restaurado en una copia |
 | J | Preguntas de precio y de líquidos respondidas con la FAQ de garantía | Palabras clave genéricas («iphone», «celular») en la FAQ de garantía; en un empate gana la primera FAQ | Palabras clave sin nombres de modelos; FAQ de líquidos reforzada | 51 preguntas evaluadas: todas las de FAQ en la respuesta correcta |
+
+## 16. Carga controlada contra Render (11 de noviembre de 2026)
+
+### 16.1 Condiciones autorizadas
+
+El propietario autorizó una prueba **escalonada, pequeña y de solo lectura** contra los servicios
+publicados:
+
+- Tres etapas: 100, 1 000 y 5 000 solicitudes totales, con 10, 20 y 25 usuarios concurrentes.
+- Solo lectura: nada escribe en la base de datos ni crea conversaciones.
+- Detención automática si hay más de 5 errores, o si falla más del 2 % de las respuestas.
+- Sin 10 000 a 50 000 contra Render: Render Free (512 MB, 1 proceso) y la cuota de Neon no lo soportan
+  sin riesgo de dejar la demostración caída.
+
+Endpoints (todos sin rate limit, para medir el servidor y no el límite de 60 por minuto):
+
+| Endpoint | Peso | Qué ejercita |
+|---|---:|---|
+| `GET /api/health/live/` | 3 | Proceso de Django, sin dependencias |
+| `GET /api/health/` | 2 | Consulta mínima a PostgreSQL (Neon) y al servicio del chatbot |
+| `GET /widget.js` | 2 | Archivo que descargan los sitios con el widget |
+| `GET /login` del frontend | 1 | Servicio de Next.js en Render |
+
+### 16.2 Cómo repetirla, paso a paso
+
+1. Ejecutar una etapa: `loadtest/render/ejecutar_render.sh <total> <usuarios>`, por ejemplo
+   `loadtest/render/ejecutar_render.sh 1000 20`. El script:
+   - evita que macOS se suspenda;
+   - despierta los servicios (Render Free se duerme) y no empieza si no responden 200, para no medir el
+     arranque;
+   - corre Locust en un contenedor con `loadtest/render/locustfile_render.py`;
+   - termina al llegar al total o al superar el umbral de errores;
+   - comprueba la recuperación con 5 peticiones a `/api/health/`.
+2. Los resultados quedan en `loadtest/resultados/render/` (CSV y consola; los informes HTML quedan solo
+   en el equipo).
+3. Generar el gráfico:
+   ```bash
+   docker run --rm -v "$PWD":/w -w /w python:3.12-slim \
+     sh -c "pip install -q matplotlib && python loadtest/render/graficos_render.py"
+   ```
+
+### 16.3 Resultados
+
+Resumen final de Locust (`*_consola.txt`); tiempos en milisegundos.
+
+| Etapa | Usuarios | Solicitudes | Fallos | Solic./s | p50 | p95 | p99 | Máx. |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 100 | 10 | 98 | 0 | 13,0 | 320 | 750 | 1 300 | 1 303 |
+| 1 000 | 20 | 995 | 0 | 28,6 | 280 | 450 | 640 | 859 |
+| 5 000 | 25 | 4 993 | 0 | 39,2 | 250 | 340 | 510 | 1 002 |
+
+![Carga en Render](evidencias/graficos-carga-render.png)
+
+- **0 fallos y ningún error 5xx** en las tres etapas. Ninguna etapa llegó al umbral de detención.
+- La mediana (250-320 ms) es casi toda latencia de red entre el equipo de prueba y Render: el tiempo
+  mínimo fue de 128-135 ms.
+- El rendimiento creció con la concurrencia (13 → 39 solicitudes por segundo) mientras el p95 **bajó**
+  (750 → 340 ms): el servidor no llegó a saturarse con 25 usuarios.
+- Recuperación: después de cada etapa, `/api/health/` respondió 200 en 0,2 a 0,4 s.
+- La primera etapa tiene un p95 más alto porque los servicios acababan de despertar.
+- En la primera ejecución, Locust no terminaba al agotar el total de solicitudes y esperaba el límite de
+  20 minutos (94 solicitudes, 0 fallos). Se corrigió deteniendo la prueba desde otro greenlet y se repitió
+  la etapa; la tabla muestra la repetición.
+
+### 16.4 Hallazgo: el límite anónimo no se aplica en Render
+
+Prueba aparte, también de solo lectura: 70 peticiones anónimas seguidas a `GET /api/faqs/`
+(`loadtest/resultados/render/*_R-rate-limit-faqs.txt`).
+
+| Entorno | Resultado | Esperado (`THROTTLE_ANON=60/min`) |
+|---|---|---|
+| Docker local | 60 × 200 y 10 × 429 | Correcto |
+| Render | **70 × 200, ningún 429** | No aplicado |
+
+El código funciona (lo demuestra el entorno local y `test_rate_limit_and_errors.py`), así que la
+diferencia está en la configuración de Render. Causas probables:
+
+1. `THROTTLE_ANON` está definida con un valor más alto en Render. `DESPLIEGUE.md` §4 indica subirla para
+   una prueba de carga y restaurarla después.
+2. `NUM_PROXIES=2` toma como IP del cliente una dirección intermedia que cambia en cada conexión (por
+   ejemplo, la de Cloudflare), y cada petición cuenta como un visitante distinto.
+
+Cómo confirmarlo sin escribir en producción: revisar `THROTTLE_ANON` y `NUM_PROXIES` en *Environment*
+del backend en Render, y comparar el campo «Origen» de dos accesos propios en `/admin/auditoria`. Si el
+origen cambia entre accesos, la causa es la segunda. **No se modificó producción.**
+
+## 17. Código ofuscado (11 de noviembre de 2026)
+
+Extra del 25 %, «cifrar el código», interpretado como **ofuscar el código que recibe el navegador**: es el
+único código del sistema que sale del servidor.
+
+### 17.1 Widget (`widget.js`)
+
+- El código legible se mantiene en `backend/widget/static_src/widget.js`.
+- `backend/widget/build/build-widget.mjs` genera `backend/widget/dist/widget.js` con
+  `javascript-obfuscator` 5.9.0:
+  - nombres internos reemplazados (`_0x…`);
+  - el 100 % de los textos codificados en base64 dentro de un arreglo rotado y mezclado;
+  - semilla fija, así el resultado es reproducible.
+- Se conservan los nombres públicos (`window.BDChatbot`, sus métodos, los eventos `bdchatbot:*` y los
+  atributos `data-*`), porque las páginas que instalan el widget los usan.
+- No se usan autodefensa ni bloqueo del depurador: rompen sitios de terceros y no protegen nada que el
+  servidor no proteja ya.
+- En Render el backend corre con Python nativo, sin Node, por eso el archivo generado se versiona. La
+  primera línea guarda el SHA-256 del fuente del que salió.
+
+Pasos para regenerarlo después de cambiar el fuente:
+
+```bash
+cd backend/widget/build
+npm ci --ignore-scripts
+npm run build      # escribe dist/widget.js
+npm run check      # comprueba que corresponde al fuente
+```
+
+### 17.2 Frontend (Next.js)
+
+- El build de producción ya entrega JavaScript minificado y con nombres acortados.
+- `next.config.ts` fija `productionBrowserSourceMaps: false`: el navegador no recibe mapas que permitan
+  reconstruir el código. Los `.map` que genera Next quedan en `.next/server`, que nunca se publica.
+
+### 17.3 Comprobaciones
+
+| Comprobación | Resultado |
+|---|---|
+| `test_widget_script_is_served_obfuscated_and_matches_the_source` | `/widget.js` sirve la versión ofuscada, con el SHA-256 del fuente actual y sin nombres legibles |
+| Suite completa de la API (pytest, local) | 239 correctas |
+| Playwright `saas.spec.ts` con el widget ofuscado | 5/5: se instala una sola vez, responde, deriva al asesor y recibe su respuesta |
+| CI: «Widget ofuscado al día» | Falla si `dist/widget.js` no corresponde al fuente |
+| CI: «Sin mapas de código fuente publicados» | Falla si `.next/static` contiene un `.map` |
+| Frontend local | 0 archivos `.map` en `.next/static`; `/_next/static/chunks/*.js.map` → 404 |
