@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
 
   // Mantener la configuración para Docker y Render.
   output: "standalone",
+
+  // El navegador recibe el código minificado, sin mapas que reconstruyan el fuente
+  // (es el valor por defecto; se deja explícito y la CI lo comprueba).
+  productionBrowserSourceMaps: false,
 };
 
 export default nextConfig;

@@ -38,7 +38,10 @@ from .security import (
     widget_business,
 )
 
-WIDGET_JS = Path(__file__).resolve().parent / "static_src" / "widget.js"
+# Código legible (se edita) y versión ofuscada que se distribuye (se genera con
+# backend/widget/build: `npm run build`). La CI comprueba que dist corresponde al fuente.
+WIDGET_SOURCE = Path(__file__).resolve().parent / "static_src" / "widget.js"
+WIDGET_JS = Path(__file__).resolve().parent / "dist" / "widget.js"
 
 
 class WidgetMessageSerializer(serializers.Serializer):

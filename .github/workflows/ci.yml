@@ -108,9 +108,18 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
+      - name: Sin mapas de código fuente publicados
+        # El navegador solo descarga .next/static: ahí no debe haber .map.
+        run: test -z "$(find .next/static -name '*.map')"
       - name: Sintaxis del widget público
         working-directory: backend/widget/static_src
         run: node --check widget.js
+      - name: Widget ofuscado al día (dist/widget.js corresponde al fuente)
+        working-directory: backend/widget/build
+        run: |
+          npm ci --ignore-scripts
+          npm run check
+          node --check ../dist/widget.js
 
   docker:
     name: Imágenes Docker
