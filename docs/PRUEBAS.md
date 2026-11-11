@@ -16,6 +16,10 @@ Resultados obtenidos el 13 de octubre de 2026 en el entorno local de Docker Comp
 | Carga del 80 % | Locust 2.46.7 | Modalidad A (1000–5000 solicitudes) y B (50–500 usuarios): 0 fallos en los 25 escenarios registrados (sección 10) |
 | Resiliencia | `infra/pruebas/resiliencia.sh` | Chatbot, PostgreSQL y backend caídos o congelados: respuestas controladas (sección 11) |
 | Respaldo y restauración | `infra/backup/*.sh` | Restauración aislada con conteos idénticos (`BACKUPS.md`) |
+| CI (GitHub Actions, 11 de noviembre) | pytest, Node test runner | API 238 correctas; chatbot 43 correctas; unitarias del frontend 10 correctas |
+| Carga del 100 % | Locust 2.46.7 | 10 000 a 50 000 solicitudes con 100 usuarios: 0 fallos después de las correcciones (sección 12) |
+| Resiliencia del 100 % | `infra/pruebas/resiliencia.sh` | 7 escenarios, 0 fallas (sección 13) |
+| Producción en Render | `curl`, solo lectura | Salud, errores, CORS, autenticación y paginación correctos (sección 14) |
 
 ## 1. Pytest
 
@@ -229,7 +233,9 @@ Comprobación en vivo (usuario ficticio `cliente@example.com`; el token se envej
 
 ## 9. Pendiente
 
-- Prueba de carga contra Render: preparada en `DESPLIEGUE.md`, sección 4. Requiere autorización.
+- Prueba de carga contra Render: preparada en `DESPLIEGUE.md`, sección 4. No se ejecutó: el propietario
+  no la autorizó, para no agotar Render Free ni la cuota de Neon. Todas las campañas de carga (25 %, 80 %
+  y 100 %) se hicieron en Docker local; en Render se verificó el funcionamiento con lecturas (sección 14).
 - Con más de 200 usuarios concurrentes escribiendo, el entorno local se satura (sección 10).
 
 ## 10. Entrega del 80 %: pruebas de carga con Locust (29 de octubre de 2026)
@@ -388,3 +394,239 @@ Evidencia: `docs/evidencias/resiliencia_20261029-150817.log`.
 | El caso "reinicio automático" daba OK sin reiniciar | La imagen no trae el binario `kill`; el comando fallaba en silencio | `exec: "kill": executable file not found` | `sh -c 'kill 1'` y exigir que cambie `StartedAt` | Reinicio real (`RestartCount=1`) |
 | El reinicio completo corta el servicio | Con una sola instancia, el puerto se cierra mientras gunicorn arranca | Paso 6 del log | Para renovar procesos o configuración, usar `HUP`; un cambio de imagen necesita reinicio. El frontend muestra la pantalla de servicio no disponible con "Reintentar" | `HUP`: 0 fallos |
 | El selector de idioma volvía al inicio y no cambiaba el idioma en Docker | La redirección usaba la dirección interna del servidor (`0.0.0.0:3000`), no la del navegador | Prueba Playwright del selector | `Location` relativa y comparación del `Referer` con el `Host` | Playwright 10/10 |
+
+## 12. Entrega del 100 %: carga de 10 000 a 50 000 solicitudes (10 de noviembre de 2026)
+
+### 12.1 Dónde se ejecutó y por qué
+
+La campaña se ejecutó contra **Docker Compose local**, no contra Render ni Neon:
+
+- Render Free tiene 512 MB de memoria y un solo proceso de gunicorn. Una carga de 50 000 solicitudes
+  mediría el límite del plan gratuito, no el diseño del sistema.
+- Neon Free tiene una cuota mensual de cómputo. Agotarla dejaría la demostración pública sin base de datos.
+- El propietario del proyecto prohibió expresamente las pruebas de carga contra Render y Neon.
+
+El funcionamiento real en Render se comprobó por separado, con consultas de solo lectura (sección 14).
+
+| Elemento | Valor |
+|---|---|
+| Equipo | Apple M2, 8 núcleos, 8 GiB de RAM, macOS |
+| Docker Desktop | 8 CPU y 3,8 GiB asignados |
+| Backend | gunicorn, `GUNICORN_WORKERS=4` |
+| Base de datos | PostgreSQL 17 en Docker |
+| Herramienta | Locust 2.46.7, en un contenedor dentro de la misma red de Docker |
+| Destino | `http://backend:8000` (red interna). Nunca Render ni Neon |
+| Rate limits | Subidos durante la campaña con `loadtest/limites.sh altos`; restaurados al terminar, siempre |
+
+### 12.2 Qué hace cada usuario simulado
+
+La campaña usa **100 usuarios concurrentes fijos** y aumenta el **volumen total**: 10 000, 20 000,
+30 000 y 50 000 solicitudes. Solicitudes acumuladas y usuarios concurrentes no son lo mismo: aquí 100
+usuarios envían, entre todos, las 50 000 solicitudes.
+
+| Perfil (`loadtest/locustfile.py`) | Proporción | Qué hace |
+|---|---|---|
+| `Lectura` | 1/3 | Cliente registrado: inicia sesión y consulta FAQ, su historial y su perfil |
+| `LecturaAsesor` | 1/3 | Asesor: recorre la bandeja paginada de conversaciones de su negocio |
+| `Widget` | 1/3 | Visitante anónimo del widget: pide la configuración, crea su sesión y conversa (el flujo real de `widget.js`) |
+
+Cada usuario espera entre 0,1 y 0,5 s entre una solicitud y la siguiente.
+
+### 12.3 Cómo repetirla, paso a paso
+
+1. Levantar el entorno local:
+   ```bash
+   docker compose up -d --build
+   docker compose exec backend python manage.py seed_demo
+   ```
+2. Comprobar que responde: `curl http://127.0.0.1:8000/api/health/` debe devolver `"status":"ok"`.
+3. Ejecutar la campaña con una etiqueta (`antes` o `despues`):
+   ```bash
+   loadtest/campana-100.sh despues
+   ```
+   El script:
+   - evita que macOS se suspenda (`caffeinate -i`), ver la incidencia 12.8-A;
+   - sube los rate limits y los restaura al terminar, aunque falle;
+   - corre 10 000, 20 000, 30 000 y 50 000 solicitudes, con 15 s de pausa entre corridas;
+   - registra CPU, memoria y conexiones de PostgreSQL cada ~2 s (`*_recursos.csv`);
+   - al final, envía 5 peticiones a `/api/health/` para comprobar que el sistema se recupera.
+4. Los resultados quedan en `loadtest/resultados/` con fecha y etiqueta (`*_stats.csv`,
+   `*_stats_history.csv`, `*_failures.csv`, `*_recursos.csv`, `*_consola.txt`).
+5. Generar los gráficos (sin instalar nada en el equipo):
+   ```bash
+   docker run --rm -v "$PWD":/w -w /w python:3.12-slim \
+     sh -c "pip install -q matplotlib && python loadtest/graficos_100.py"
+   ```
+   El script también imprime la tabla de la sección 12.4.
+
+### 12.4 Resultados
+
+Tiempos en milisegundos. «Antes» es el código del 80 %. «Después» incluye el contador atómico de rate
+limits y menos consultas por petición (12.6). «Preload» añade `gunicorn --preload` con reciclaje
+escalonado.
+
+| Escenario | Solicitudes | Fallos | Solic./s | p50 | p95 | p99 | Máx. |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 10 000, antes | 9 964 | 0 | 215,8 | 89 | 390 | 1 400 | 2 427 |
+| 20 000, antes | 19 983 | 0 | 216,2 | 130 | 360 | 700 | 1 080 |
+| 30 000, antes | 29 752 | 0 | 170,4 | 140 | 490 | 1 200 | 7 692 |
+| 50 000, antes | 49 907 | **117** | 212,9 | 130 | 390 | 710 | 1 172 |
+| 10 000, después | 9 711 | 0 | 233,8 | 22 | 660 | 1 400 | 2 026 |
+| 20 000, después | 19 923 | 0 | 283,5 | 16 | 150 | 660 | 1 264 |
+| 30 000, después | 29 806 | 0 | 269,3 | 20 | 180 | 990 | 2 764 |
+| 50 000, después | 49 951 | 0 | 188,9 | 52 | 850 | 2 700 | 7 801 |
+| 50 000, preload (1.ª) | 49 790 | 0 | 238,9 | 49 | 320 | 750 | 9 670 |
+| 50 000, preload (2.ª) | 49 836 | 0 | 118,7* | 22 | 220 | 850 | 5 027 |
+
+\* La segunda corrida con preload tuvo una pausa de 232 s sin datos porque el equipo se suspendió
+(incidencia 12.8-A). Sin esa pausa, el ritmo real fue de unas 265 solicitudes por segundo.
+
+Recursos del contenedor backend con 50 000 solicitudes:
+
+| Corrida | CPU máxima | CPU media | Memoria máxima |
+|---|---:|---:|---:|
+| Antes | 380 % | 241 % | 229 MiB |
+| Después | 418 % | 249 % | 227 MiB |
+| Preload (1.ª) | 388 % | 245 % | 230 MiB |
+| Preload (2.ª) | 375 % | 223 % | 231 MiB |
+
+El 400 % equivale a 4 núcleos ocupados (4 procesos de gunicorn). La memoria se mantuvo estable en
+~230 MiB en todas las corridas: no hay fugas.
+
+Recuperación después de la carga: las 5 peticiones a `/api/health/` respondieron **200 en 4 a 56 ms**,
+tanto en la campaña «antes» como en la «después».
+
+### 12.5 Gráficos
+
+| Archivo | Qué muestra |
+|---|---|
+| `docs/evidencias/graficos-carga-100-percentiles.png` | p50, p95 y p99 por volumen, antes y después |
+| `docs/evidencias/graficos-carga-100-rendimiento.png` | Solicitudes por segundo y fallos por volumen |
+| `docs/evidencias/graficos-carga-100-50k-tiempo.png` | Las 3 etapas con 50 000 solicitudes, segundo a segundo: rendimiento y p95 |
+| `docs/evidencias/graficos-carga-100-recursos.png` | CPU y memoria del backend durante las 3 etapas |
+
+![Percentiles](evidencias/graficos-carga-100-percentiles.png)
+![Rendimiento](evidencias/graficos-carga-100-rendimiento.png)
+![50 000 en el tiempo](evidencias/graficos-carga-100-50k-tiempo.png)
+![Recursos](evidencias/graficos-carga-100-recursos.png)
+
+### 12.6 Cuellos de botella encontrados y corrección
+
+Se corrigieron en tres pasos. Cada paso se midió antes de pasar al siguiente.
+
+**Paso 1. El rate limit consultaba demasiado la base de datos.**
+- Síntoma: mediana de 89-140 ms con 100 usuarios, aunque las consultas en sí son simples.
+- Causa: los rate limits de DRF, guardados en la caché de base de datos, hacían 4 consultas por límite
+  en cada petición y guardaban una lista serializada de marcas de tiempo de hasta 37 KB.
+- Corrección: un contador atómico propio (`core/throttling.py`, modelo `RateCounter`), con una sola
+  consulta `INSERT … ON CONFLICT DO UPDATE` por límite. También se eliminaron dos consultas que se
+  repetían: la comprobación del origen del widget y la búsqueda de la membresía del negocio. Las
+  consultas por petición bajaron entre un 42 % y un 67 %.
+- Resultado: la mediana bajó de 89-140 ms a **16-52 ms** y el ritmo subió hasta 283 solicitudes por
+  segundo.
+
+**Paso 2. Pausas de ~45 s al reciclar los procesos de gunicorn.**
+- Síntoma: en la corrida de 50 000 «después», el ritmo cae a 25-50 solicitudes por segundo entre los
+  segundos 140 y 190, y el p99 sube a 2 700 ms (gráfico `graficos-carga-100-50k-tiempo.png`).
+- Causa: gunicorn recicla cada proceso tras un número de peticiones (`--max-requests`). Con un valor bajo
+  y parecido para los 4 procesos, se reciclaban casi a la vez, y cada uno volvía a cargar Django desde
+  cero.
+- Corrección (`backend/Dockerfile`): `--preload` (Django se carga una vez y los
+  procesos nuevos se crean copiando el principal) y `--max-requests 20000 --max-requests-jitter 4000`
+  (los reciclajes quedan repartidos en el tiempo).
+- Resultado: con 50 000 solicitudes, p95 de **320 y 220 ms** y p99 de 750-850 ms, sin pausas largas y
+  con la misma memoria (~230 MiB).
+
+**Paso 3. Fallos falsos en el perfil del asesor.**
+- Síntoma: 117 errores `404` en `/api/chat/conversations/?status=…&page=…` en la corrida de 50 000
+  «antes».
+- Causa: el perfil `LecturaAsesor` pedía un número de página calculado al principio. Durante la prueba,
+  las conversaciones cambiaban de estado y la página dejaba de existir. DRF responde 404 a una página
+  fuera de rango; eso es correcto, el error estaba en el script.
+- Corrección: el perfil pide solo páginas que existen en ese momento (`loadtest/locustfile.py`).
+- Resultado: **0 fallos** en todas las corridas siguientes.
+
+Cuello de botella conocido que **no** se corrige: el hash de contraseñas (PBKDF2-SHA256 con 1 000 000
+de iteraciones) hace lento el login con mucha concurrencia. Se mantiene porque protege las contraseñas
+(sección 10).
+
+### 12.7 Lectura de los resultados
+
+- El sistema atendió **50 000 solicitudes con 100 usuarios concurrentes y 0 fallos** después de las
+  correcciones.
+- La mediana quedó entre 16 y 52 ms; el p95, entre 150 y 320 ms, salvo la corrida previa a `--preload`.
+- No hubo errores 5xx, la memoria se mantuvo estable y el sistema se recuperó al instante.
+- Estos números son del entorno local con 4 procesos. En Render Free hay 1 proceso y 512 MB, así que el
+  rendimiento allí es menor. Por eso la configuración de Render usa 1 proceso y el reciclaje escalonado.
+
+### 12.8 Incidencias de la campaña
+
+| Id | Problema | Causa | Evidencia | Solución | Resultado |
+|---|---|---|---|---|---|
+| A | Una corrida de 50 000 midió una «pausa» de 232 s | macOS suspendió el equipo por inactividad; Locust contó la pausa como lentitud | Hueco sin datos en `*_C-50000req-preload-2_stats_history.csv` | Los scripts de carga se ejecutan con `caffeinate -i` | Corridas siguientes sin huecos |
+| B | 117 errores 404 en la bandeja del asesor | El script pedía páginas que dejaban de existir (12.6, paso 3) | `*_C-50000req-antes_failures.csv` | Perfil corregido | 0 fallos |
+| C | Caídas del ritmo a 25-50 solicitudes por segundo | Reciclaje simultáneo de los procesos de gunicorn (12.6, paso 2) | `*_C-50000req-despues_stats_history.csv` | `--preload` y reciclaje escalonado | p95 de 220-320 ms |
+
+## 13. Entrega del 100 %: resiliencia (10 de noviembre de 2026)
+
+Script: `infra/pruebas/resiliencia.sh`. Evidencia: `docs/evidencias/resiliencia_20261110-150446.log`.
+Se repitió la prueba de la sección 11 sobre la plataforma multiempresa, con 12 usuarios, 354
+conversaciones y 89 503 mensajes en la base. Resultado: **0 fallas**.
+
+| Paso | Qué se simula | Resultado esperado | Resultado |
+|---|---|---|---|
+| 1 | Servicio del chatbot detenido | `/api/health/` → 503 con `chatbot=error`; el chat → 503 `chatbot_unavailable` sin detalles internos y sin guardar nada; el widget responde con un mensaje de respaldo y deriva a un asesor | Correcto |
+| 2 | Chatbot congelado | Corte a los 3 s con 504 `chatbot_timeout` | Correcto (3,02 s) |
+| 3 | PostgreSQL detenido | 503 `database_unavailable`; `/chat` muestra «Servicio no disponible»; al volver la base, todo responde sin reiniciar el backend | Correcto |
+| 4 | Backend detenido y congelado | El frontend muestra «Servicio no disponible», o «El servidor tardó demasiado» a los 8 s | Correcto |
+| 5 | El proceso principal del backend termina | Docker lo reinicia solo (`RestartCount=1`) | Correcto |
+| 6 | Reinicio completo del backend con 20 usuarios | Corte breve esperado con una sola instancia | 208 de 2 456 solicitudes fallidas (8,5 %) durante el reinicio: conexión rechazada o reiniciada |
+| 7 | Recarga en caliente (`HUP`) con la misma carga | Sin corte | **0 fallos** en 1 600 solicitudes |
+
+Además, el widget reintenta su configuración a los 3, 8 y 15 s cuando el servidor no responde o devuelve
+5xx. Con el backend detenido 10 s, el botón del chat apareció solo, sin recargar la página.
+
+## 14. Verificación en Render (11 de noviembre de 2026)
+
+Comprobaciones **de solo lectura** sobre los servicios publicados. No se ejecutó carga contra Render ni
+contra Neon.
+
+| Comprobación | Petición | Resultado |
+|---|---|---|
+| Salud del backend y sus dependencias | `GET https://chatbot-blackdogstore-cloud.onrender.com/api/health/` | 200 `{"status":"ok","checks":{"database":"ok","chatbot":"ok"}}` |
+| Ruta inexistente de la API | `GET /api/no-existe/` | 404 `{"error":{"code":"not_found",…}}` |
+| Recurso protegido sin sesión | `GET /api/chat/conversations/` | 401 `not_authenticated` |
+| Token falso | `GET /api/users/me/` con `Authorization: Token 0000` | 401 «Token inválido.» |
+| Login incorrecto | `POST /api/auth/login/` | 401 «Correo o contraseña incorrectos.» |
+| CORS con origen no autorizado | `OPTIONS /api/faqs/` con `Origin: https://evil.example` | 403 |
+| Paginación | `GET /api/faqs/` | `count: 22` con enlace `next` (20 por página) |
+| Página inexistente del frontend | `GET https://blackdog-chatbot-frontend.onrender.com/pagina-que-no-existe` | 404 con la página propia |
+| Registro y login | `/registro` y `/login` | 200 |
+| Panel sin sesión | `/panel`, `/plataforma` | Solo muestra «Cargando…» y redirige a `/login`; la API no entrega datos sin token |
+
+Funcionamiento con la tienda demo publicada (`https://blackdog-store-demo.onrender.com`):
+
+1. El botón «Asistente» abre el **widget flotante dentro de la tienda**, con el tema oscuro de la tienda.
+2. El widget responde las **22 FAQ reales** de Black Dog Store. Se evaluaron 51 preguntas típicas con
+   el motor del bot y las FAQ de producción: 48 respondidas por la FAQ correcta. Las 3 restantes nombran
+   solo un modelo («iPhone 13», «¿venden ipad?») y ahora las responde el conector de catálogo.
+3. «iPhone 13» devuelve los modelos con **precio y stock reales** leídos de la API pública de la tienda.
+4. Si el backend de la tienda está dormido (Render Free), el catálogo no responde a tiempo (2,5 s) y la
+   consulta pasa a un asesor (incidencia 15-H).
+
+## 15. Incidencias y caídas de la etapa del 100 %
+
+Cada incidencia incluye su causa, la solución aplicada y cómo se comprobó.
+
+| Id | Qué pasó | Causa | Solución | Comprobación |
+|---|---|---|---|---|
+| A | Tras fusionar el PR #3, Render no desplegó la versión nueva | Los dos servicios de Render seguían configurados con la rama `feat/entrega-80` | Se cambiaron ambos servicios a `main` (Auto-Deploy). Se conservó `feat/entrega-80` como respaldo | Despliegue de `main` correcto |
+| B | El código de instalación del widget en producción mostraba `http://localhost:8000` y la vista previa no mostraba el botón | `API_PUBLIC_URL` no estaba definida en el frontend de Render y el código caía en el valor de desarrollo | PR #4: `resolvePublicApiUrl` nunca usa localhost en producción; usa una URL https pública o muestra un aviso. Se añadieron pruebas (`frontend/unit/public-url.test.mjs`) | Botón visible en la vista previa de producción |
+| C | El CI del PR #4 falló | Node 22 no acepta una carpeta como argumento de `node --test` | Patrón de archivos entre comillas: `"unit/*.test.mjs"` | CI verde |
+| D | La compuerta de SonarCloud del PR #3 falló con 12 hallazgos | Dependencias de CI sin hash, `npm ci` con scripts, un literal SQL, una comparación con `None` y claves de traducción con la palabra «password» | Dependencias con hash (`requirements.ci.lock`), `npm ci --ignore-scripts`, SQL fijo, comprobación explícita y claves renombradas | Quality Gate aprobado |
+| E | Un rollback en Render habría devuelto errores 500 | Con `business_id` obligatorio, la versión anterior no podía crear FAQ ni conversaciones (ensayo sobre una copia con 2 337 usuarios y 80 676 mensajes) | Columna anulable en la base (expandir/contraer) y comando idempotente `asignar_negocio_piloto` después de `migrate` | `backend/tests/test_rollback.py` |
+| F | Un visitante podía saltarse los límites por IP del widget | El widget llama directo a la API (1 proxy de Render), pero se contaban 2 proxies, así que un `X-Forwarded-For` falso elegía la IP | `WIDGET_NUM_PROXIES` (Render: 1). Sin definir, solo cuenta `REMOTE_ADDR` | `backend/tests/test_widget.py` |
+| G | El widget no aparecía si el backend estaba arrancando | En Render Free el backend tarda ~30 s tras dormirse y un despliegue devuelve 502/503 unos segundos | Reintentos de la configuración a los 3, 8 y 15 s ante 5xx o red; nunca ante 403/404 | Backend detenido 10 s: el botón apareció solo |
+| H | La tienda demo mostró «No pudimos cargar el catálogo» | Su backend (`blackdog-store-demo-api`) estaba dormido; la primera petición tardó 23 s y la tienda recibió 502 mientras arrancaba | Ninguna en código: abrir los servicios unos minutos antes de una demostración (guía de despliegue). Mantenerlos despiertos con un ping no cabe en las 750 h mensuales del plan Free | Ya despierto: 200 en menos de 0,6 s |
+| I | El respaldo de Neon fallaba | `pg_dump` 17 no puede respaldar PostgreSQL 18.6 (Neon) | `infra/backup/respaldar.sh` usa la imagen `postgres:18-alpine` | Respaldo `neon_20261110-171155.dump`, SHA-256 verificado y restaurado en una copia |
+| J | Preguntas de precio y de líquidos respondidas con la FAQ de garantía | Palabras clave genéricas («iphone», «celular») en la FAQ de garantía; en un empate gana la primera FAQ | Palabras clave sin nombres de modelos; FAQ de líquidos reforzada | 51 preguntas evaluadas: todas las de FAQ en la respuesta correcta |
