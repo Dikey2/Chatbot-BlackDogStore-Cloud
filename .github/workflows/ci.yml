@@ -102,6 +102,8 @@ jobs:
         run: ./node_modules/.bin/next typegen
       - name: TypeScript
         run: ./node_modules/.bin/tsc --noEmit
+      - name: Pruebas unitarias (URL pública del widget)
+        run: npm run test:unit
       - name: ESLint
         run: npm run lint
       - name: Build

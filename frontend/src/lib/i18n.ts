@@ -264,6 +264,10 @@ const dictionaries: Record<Locale, Record<string, string>> = {
     "panel.catalogHelp": "Opcional. Si conectas la API de productos de tu tienda, el asistente responde precio y stock reales en el momento. Solo se aceptan hosts autorizados por la plataforma.",
     "panel.catalogApi": "API del catálogo (URL)",
     "panel.catalogPage": "Página pública del catálogo (enlace para el visitante)",
+    "preview.failed": "El widget no apareció. Revisa:",
+    "preview.checkScript": "Que {url} responda (el backend publicado debe servir widget.js).",
+    "preview.checkOrigin": "Que el origen de este panel esté en WIDGET_PREVIEW_ORIGINS o CORS_ALLOWED_ORIGINS del backend.",
+    "preview.checkActive": "Que el negocio y su chatbot estén activos.",
   },
   en: {
     "app.description": "Academic prototype for automated customer support",
@@ -523,6 +527,10 @@ const dictionaries: Record<Locale, Record<string, string>> = {
     "panel.catalogHelp": "Optional. If you connect your store's product API, the assistant answers live prices and stock. Only hosts authorized by the platform are accepted.",
     "panel.catalogApi": "Catalog API (URL)",
     "panel.catalogPage": "Public catalog page (link for visitors)",
+    "preview.failed": "The widget did not appear. Check:",
+    "preview.checkScript": "That {url} responds (the published backend must serve widget.js).",
+    "preview.checkOrigin": "That this panel's origin is in the backend's WIDGET_PREVIEW_ORIGINS or CORS_ALLOWED_ORIGINS.",
+    "preview.checkActive": "That the business and its chatbot are active.",
   },
 };
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { API_PUBLIC_URL } from "@/lib/api";
+import { publicApiUrl } from "@/lib/api";
+import { WidgetLoadCheck } from "@/components/WidgetLoadCheck";
 import { t } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
 
@@ -15,16 +16,22 @@ export default async function PreviewPage({ searchParams }: PageProps<"/vista-pr
   const locale = await getLocale();
   const { id } = await searchParams;
   const publicId = typeof id === "string" && /^[A-Za-z0-9_-]{4,40}$/.test(id) ? id : null;
+  const api = publicApiUrl();
   return (
     <main className="wide">
       <h1>{t(locale, "preview.title")}</h1>
       <p className="muted">{t(locale, "preview.intro")}</p>
-      {publicId ? (
+      {publicId && !api.url ? (
+        <p className="error" role="alert" data-testid="public-url-missing">
+          {api.problem}
+        </p>
+      ) : publicId && api.url ? (
         <>
           <p>
             <code data-testid="preview-id">{publicId}</code>
           </p>
-          <Script src={`${API_PUBLIC_URL}/widget.js`} data-chatbot-id={publicId} strategy="afterInteractive" />
+          <Script src={`${api.url}/widget.js`} data-chatbot-id={publicId} strategy="afterInteractive" />
+          <WidgetLoadCheck scriptUrl={`${api.url}/widget.js`} />
         </>
       ) : (
         <p className="error" role="alert">

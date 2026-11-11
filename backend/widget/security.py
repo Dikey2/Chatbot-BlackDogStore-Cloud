@@ -39,6 +39,17 @@ class SessionLimitReached(APIException):
     default_detail = "Se alcanzó el límite de mensajes de esta sesión."
 
 
+def preview_origins():
+    """Orígenes del propio panel que pueden cargar cualquier widget (vista previa).
+
+    WIDGET_PREVIEW_ORIGINS y CORS_ALLOWED_ORIGINS describen el mismo panel de
+    confianza (este ya llama a la API con sesiones de usuarios): basta con que el
+    origen esté en una de las dos. Así un nombre de servicio desactualizado en una
+    variable no deja la vista previa sin widget.
+    """
+    return set(settings.WIDGET_PREVIEW_ORIGINS) | set(settings.CORS_ALLOWED_ORIGINS)
+
+
 def origin_allowed(public_id, origin, request=None):
     """¿Puede ``origin`` usar el widget del negocio ``public_id``? Lo usan la vista y el CORS.
 
@@ -57,7 +68,7 @@ def origin_allowed(public_id, origin, request=None):
 
 
 def _origin_allowed(public_id, origin):
-    if origin in settings.WIDGET_PREVIEW_ORIGINS:
+    if origin in preview_origins():
         return Business.objects.filter(public_id=public_id).exists()
     return BusinessDomain.objects.filter(
         business__public_id=public_id, business__is_active=True, origin=origin
