@@ -2,82 +2,148 @@
 
 PostgreSQL 17. Solo la API Django lee y escribe. Solo contiene datos ficticios.
 
-Fuente editable del diagrama: [`diagrama-er.mmd`](diagrama-er.mmd) (Mermaid). Versión visual: [`diagrama-er.svg`](diagrama-er.svg). Si se cambia la fuente, copiar el contenido al bloque de abajo y regenerar la imagen:
+Fuente editable del diagrama: [`diagrama-er.mmd`](diagrama-er.mmd) (Mermaid). Versiones visuales: [`diagrama-er.svg`](diagrama-er.svg) y [`diagrama-er.png`](diagrama-er.png). Si se cambia la fuente, copiar el contenido al bloque de abajo y regenerar la imagen:
 
 ```bash
 docker run --rm -u "$(id -u):$(id -g)" -v "$PWD/docs:/data" minlag/mermaid-cli:11.4.2 \
   -i diagrama-er.mmd -o diagrama-er.svg -b white
+docker run --rm -u "$(id -u):$(id -g)" -v "$PWD/docs:/data" minlag/mermaid-cli:11.4.2 \
+  -i diagrama-er.mmd -o diagrama-er.png -b white -w 2400 -s 2.5
 ```
 
 ```mermaid
-%% Diagrama entidad-relación. Fuente editable (Mermaid).
-%% Editar aquí o pegar en https://mermaid.live. Se muestra en docs/BASE_DE_DATOS.md
-%% y se exporta a docs/diagrama-er.svg (ver BASE_DE_DATOS.md).
-%% ARCHIVO está PLANIFICADA (RF-10): todavía no existe en la base de datos.
+%% Diagrama entidad-relación de la entrega del 100 % (plataforma multiempresa). Fuente editable (Mermaid).
+%% Fuente de verdad: modelos y migraciones de Django (makemigrations --check: sin cambios).
+%% Editar aquí o pegar en https://mermaid.live. Se copia en docs/BASE_DE_DATOS.md y se exporta
+%% a docs/diagrama-er.svg y docs/diagrama-er.png (comandos en BASE_DE_DATOS.md).
+%% Convenciones: PK clave primaria, FK clave foránea, UK valor único.
+%% "NULL" en el comentario = la columna admite nulos; sin esa marca, NOT NULL.
+%% |o en una relación = la clave foránea admite nulos.
 erDiagram
-    USERS_USER ||--o{ CHAT_CONVERSATION : "inicia"
-    USERS_USER ||--o| AUTHTOKEN_TOKEN : "tiene sesión"
+    TENANTS_BUSINESS ||--o{ TENANTS_BUSINESSDOMAIN : "autoriza orígenes del widget"
+    TENANTS_BUSINESS ||--o{ TENANTS_MEMBERSHIP : "tiene equipo"
+    USERS_USER ||--o{ TENANTS_MEMBERSHIP : "pertenece (admin | asesor)"
+    TENANTS_BUSINESS ||--o| TENANTS_CHATBOTCONFIG : "configura su chatbot"
+    TENANTS_BUSINESS ||--o{ TENANTS_VISITORSESSION : "sesiones anónimas del widget"
+    TENANTS_BUSINESS |o--o{ FAQS_FAQ : "sus FAQ"
+    TENANTS_BUSINESS |o--o{ CHAT_CONVERSATION : "sus conversaciones"
+    TENANTS_BUSINESS |o--o{ AUDIT_AUDITEVENT : "sus eventos"
+    USERS_USER |o--o{ CHAT_CONVERSATION : "cliente (user_id)"
+    TENANTS_VISITORSESSION |o--o{ CHAT_CONVERSATION : "visitante (visitor_id)"
+    USERS_USER |o--o{ CHAT_CONVERSATION : "asesor asignado (assigned_to_id)"
+    USERS_USER ||--o| AUTHTOKEN_TOKEN : "sesión"
     CHAT_CONVERSATION ||--o{ CHAT_MESSAGE : "contiene"
     USERS_USER |o--o{ AUDIT_AUDITEVENT : "genera"
-    CHAT_CONVERSATION ||--o{ ARCHIVO : "adjunta (PLANIFICADA)"
 
+    TENANTS_BUSINESS {
+        bigint id PK
+        varchar(40) public_id UK "id público del widget (no es secreto)"
+        varchar(60) slug UK
+        varchar(120) name "nombre comercial"
+        text description
+        varchar(500) logo_url "https, puede estar vacío"
+        boolean is_active "false = suspendido"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    TENANTS_BUSINESSDOMAIN {
+        bigint id PK
+        bigint business_id FK "ON DELETE CASCADE"
+        varchar(255) origin "scheme://host[:puerto]; único con business_id"
+        timestamptz created_at
+    }
+    TENANTS_MEMBERSHIP {
+        bigint id PK
+        bigint user_id FK "ON DELETE CASCADE; único con business_id"
+        bigint business_id FK "ON DELETE CASCADE"
+        varchar(10) role "admin | asesor (fuente de autoridad)"
+        timestamptz created_at
+    }
+    TENANTS_CHATBOTCONFIG {
+        bigint business_id PK, FK "uno a uno; ON DELETE CASCADE"
+        varchar(80) assistant_name
+        varchar(300) welcome_message
+        varchar(300) no_answer_message
+        varchar(300) handoff_message
+        varchar(255) handoff_keywords "reglas de derivación"
+        text schedule "puede estar vacío"
+        text contact_info "puede estar vacío"
+        varchar(7) primary_color "#RRGGBB"
+        boolean is_active
+        varchar(500) catalog_api_url "API de productos; vacío = sin catálogo"
+        varchar(500) catalog_page_url "enlace al catálogo; puede estar vacío"
+        timestamptz updated_at
+    }
+    TENANTS_VISITORSESSION {
+        bigint id PK
+        bigint business_id FK "ON DELETE CASCADE"
+        varchar(64) token_hash UK "SHA-256; el token en claro no se guarda"
+        varchar(255) origin
+        integer message_count "control de abuso"
+        timestamptz created_at
+        timestamptz last_seen_at
+        timestamptz expires_at
+        timestamptz revoked_at "NULL"
+    }
     USERS_USER {
         bigint id PK
-        varchar name "nombre"
-        varchar email UK "correo, usado para iniciar sesión"
-        varchar password "hash PBKDF2-SHA256, nunca texto plano"
-        varchar role "cliente | asesor | admin"
+        varchar(150) name
+        varchar(254) email UK "inicio de sesión"
+        varchar(128) password "hash PBKDF2-SHA256"
+        varchar(10) role "cliente | asesor | admin (heredado)"
         boolean is_active
         boolean is_staff
-        boolean is_superuser
+        boolean is_superuser "superadministrador de la plataforma"
         timestamptz date_joined
-        timestamptz last_login
+        timestamptz last_login "NULL"
     }
     AUTHTOKEN_TOKEN {
-        varchar key PK "token de sesión"
-        bigint user_id FK,UK "ON DELETE CASCADE"
+        varchar(40) key PK "token de sesión"
+        bigint user_id FK, UK "ON DELETE CASCADE"
         timestamptz created "caduca a las TOKEN_TTL_HOURS"
     }
     FAQS_FAQ {
         bigint id PK
-        varchar category "categoría, indexada"
-        varchar question "pregunta"
-        text answer "respuesta"
-        varchar keywords "palabras clave separadas por coma"
-        boolean is_active "estado"
+        bigint business_id FK "NULL en BD (rollback seguro); ON DELETE CASCADE"
+        varchar(50) category
+        varchar(255) question
+        text answer
+        varchar(255) keywords "separadas por coma"
+        boolean is_active
         timestamptz created_at
         timestamptz updated_at
     }
     CHAT_CONVERSATION {
         bigint id PK
-        bigint user_id FK "ON DELETE CASCADE"
-        varchar status "abierta | derivada | cerrada"
+        bigint business_id FK "NULL en BD (rollback seguro); ON DELETE CASCADE"
+        bigint user_id FK "NULL; cliente registrado; ON DELETE CASCADE"
+        bigint visitor_id FK "NULL; visitante del widget; ON DELETE SET NULL"
+        bigint assigned_to_id FK "NULL; asesor; ON DELETE SET NULL"
+        varchar(10) status "abierta | derivada | atendiendo | cerrada"
         timestamptz created_at
     }
     CHAT_MESSAGE {
         bigint id PK
         bigint conversation_id FK "ON DELETE CASCADE"
-        varchar sender "cliente | bot | asesor"
+        varchar(10) sender "cliente | bot | asesor"
         text content
         timestamptz created_at
     }
     AUDIT_AUDITEVENT {
         bigint id PK
-        bigint user_id FK "nullable, ON DELETE SET NULL"
-        varchar email "copia del correo"
-        varchar action "login, logout, faq_crear, ..."
-        varchar result "exito | fallo"
-        varchar source "IP del cliente"
-        varchar detail "sin contraseñas ni tokens"
+        bigint business_id FK "NULL = evento de plataforma; ON DELETE SET NULL"
+        bigint user_id FK "NULL; ON DELETE SET NULL"
+        varchar(254) email "copia del correo"
+        varchar(30) action "login, faq_crear, negocio_crear, ..."
+        varchar(10) result "exito | fallo"
+        varchar(64) source "IP del cliente"
+        varchar(255) detail "sin contraseñas, tokens ni mensajes"
         timestamptz created_at
     }
-    ARCHIVO {
-        bigint id PK
-        bigint conversation_id FK "PLANIFICADA, RF-10"
-        varchar clave
-        varchar nombre
-        varchar tipo
-        timestamptz creado_en
+    CORE_RATECOUNTER {
+        varchar(200) key PK "límite + cliente (tabla operativa, sin relaciones)"
+        timestamptz window_start "inicio de la ventana"
+        integer count "peticiones en la ventana"
     }
 ```
 
