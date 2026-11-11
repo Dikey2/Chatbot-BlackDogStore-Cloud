@@ -25,4 +25,5 @@ backups/
 # Reportes HTML de Locust de cada ejecución (~1 MB cada uno): se conservan en local.
 # En Git quedan los CSV, la consola, resumen.md y comparativa.html.
 loadtest/resultados/2*.html
+loadtest/resultados/render/2*.html
 loadtest/resultados/descartados/
