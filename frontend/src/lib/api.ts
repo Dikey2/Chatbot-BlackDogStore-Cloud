@@ -1,12 +1,20 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
+import { resolvePublicApiUrl } from "./public-url";
 
 // URL de la API vista desde el servidor de Next.js (red interna de Docker).
 // El navegador nunca llama a la API directamente (salvo el widget público).
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
 
-/** URL pública de la API: la que usa el widget instalado en webs de terceros. */
-export const API_PUBLIC_URL = (process.env.API_PUBLIC_URL ?? "http://localhost:8000").replace(/\/+$/, "");
+/** URL pública de la API (widget.js). null en producción si no hay una URL pública válida. */
+export function publicApiUrl() {
+  // Se lee en cada petición: la variable de Render llega en tiempo de ejecución.
+  return resolvePublicApiUrl({
+    API_PUBLIC_URL: process.env.API_PUBLIC_URL,
+    API_INTERNAL_URL: process.env.API_INTERNAL_URL,
+    NODE_ENV: process.env.NODE_ENV,
+  });
+}
 
 /** Cookie con el negocio elegido en el panel. Solo SELECCIONA: Django decide si el usuario pertenece. */
 export const BUSINESS_COOKIE = "negocio";

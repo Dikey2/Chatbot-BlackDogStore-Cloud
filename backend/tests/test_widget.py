@@ -328,3 +328,20 @@ def test_without_proxy_setting_forwarded_for_is_ignored(api, shop):
         for i in range(11)
     ]
     assert statuses[10] == 429
+
+
+
+@override_settings(WIDGET_PREVIEW_ORIGINS=["https://panel-viejo.example.com"],
+                   CORS_ALLOWED_ORIGINS=["https://panel.example.com"])
+def test_preview_accepts_the_panel_origin_from_cors_allowed_origins(api, cafe):
+    # Caso del despliegue: WIDGET_PREVIEW_ORIGINS apuntaba a otro nombre de servicio.
+    ok = call(api, "get", cafe, "config/", origin="https://panel.example.com")
+    assert ok.status_code == 200
+    assert ok["Access-Control-Allow-Origin"] == "https://panel.example.com"
+    assert call(api, "get", cafe, "config/", origin="https://otra-web.example.com").status_code == 403
+
+
+@override_settings(WIDGET_PREVIEW_ORIGINS=[], CORS_ALLOWED_ORIGINS=["https://panel.example.com"])
+def test_preview_origin_still_needs_an_existing_chatbot(api, cafe):
+    response = api.get("/api/widget/bd_inexistente/config/", HTTP_ORIGIN="https://panel.example.com")
+    assert response.status_code in (403, 404)

@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { RoleGate } from "@/components/RoleGate";
 import { PanelNav } from "@/components/PanelNav";
 import { ActionButton, ChatbotConfigForm, DomainForm, InstallSnippet } from "@/components/PanelForms";
-import { API_PUBLIC_URL } from "@/lib/api";
+import { publicApiUrl } from "@/lib/api";
 import { getBusiness, listDomains } from "@/lib/business";
 import { t } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
@@ -24,12 +24,21 @@ async function Settings({ token }: { token: string }) {
   }
   const b = business.data;
   const c = b.chatbot;
-  const snippet = `<script\n  src="${API_PUBLIC_URL}/widget.js"\n  data-chatbot-id="${b.public_id}"\n  defer>\n</script>`;
+  const api = publicApiUrl();
+  const snippet = api.url
+    ? `<script\n  src="${api.url}/widget.js"\n  data-chatbot-id="${b.public_id}"\n  defer>\n</script>`
+    : null;
   return (
     <>
       <h2>{t(locale, "panel.install")}</h2>
       <p className="muted">{t(locale, "panel.installHelp")}</p>
-      <InstallSnippet code={snippet} />
+      {snippet ? (
+        <InstallSnippet code={snippet} />
+      ) : (
+        <p className="error" role="alert" data-testid="public-url-missing">
+          {api.problem}
+        </p>
+      )}
       <p>
         <Link href={`/vista-previa?id=${encodeURIComponent(b.public_id)}`} target="_blank" data-testid="preview-link">
           {t(locale, "panel.preview")}
