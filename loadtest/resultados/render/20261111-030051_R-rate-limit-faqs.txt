@@ -1,0 +1,4 @@
+70 GET anónimos a https://chatbot-blackdogstore-cloud.onrender.com/api/faqs/ (2026-11-11T08:00:51Z)
+Resultado: 70 x 200, ningún 429.
+Esperado con THROTTLE_ANON=60/min: 60 x 200 y 10 x 429 (así responde el entorno local).
+Conclusión: en Render el límite anónimo no se aplicó a estas peticiones directas. Ver docs/PRUEBAS.md §16.

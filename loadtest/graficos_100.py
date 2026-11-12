@@ -30,17 +30,21 @@ def find(tag, kind):
 
 
 def aggregated(tag):
-    for row in csv.DictReader(open(find(tag, "stats"))):
-        if row["Name"] == "Aggregated":
-            return {
-                "n": int(row["Request Count"]),
-                "fail": int(row["Failure Count"]),
-                "rps": float(row["Requests/s"]),
-                "p50": float(row["50%"]),
-                "p95": float(row["95%"]),
-                "p99": float(row["99%"]),
-                "max": float(row["Max Response Time"]),
-            }
+    """Resumen FINAL de Locust (consola). *_stats.csv se escribe cada segundo y omite el último."""
+    path = sorted(glob.glob(f"{RES}/*_C-{tag}_consola.txt"))[-1]
+    lines = [line.split() for line in open(path) if line.strip().startswith("Aggregated")]
+    summary, pct = lines[0], lines[1]
+    # Resumen: Aggregated <n> <fallos>(<%>) | <prom> <mín> <máx> <mediana> | <solic/s> <fallos/s>
+    # Percentiles: Aggregated 50% 66% 75% 80% 90% 95% 98% 99% 99.9% 99.99% 100% <n>
+    return {
+        "n": int(summary[1]),
+        "fail": int(summary[2].split("(")[0]),
+        "rps": float(summary[9]),
+        "p50": float(pct[1]),
+        "p95": float(pct[6]),
+        "p99": float(pct[8]),
+        "max": float(summary[6]),
+    }
 
 
 def history(tag):

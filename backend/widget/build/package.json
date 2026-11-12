@@ -1,0 +1,13 @@
+{
+  "name": "widget-build",
+  "private": true,
+  "description": "Genera la versión ofuscada de widget.js que sirve el backend (dist/widget.js).",
+  "type": "module",
+  "scripts": {
+    "build": "node build-widget.mjs",
+    "check": "node build-widget.mjs --check"
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "5.9.0"
+  }
+}

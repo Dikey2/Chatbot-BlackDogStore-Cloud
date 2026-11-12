@@ -58,6 +58,7 @@ flowchart LR
 16. **gunicorn con `--preload` y reciclaje escalonado** (`--max-requests 20000 --max-requests-jitter 4000`): evita pausas de ~45 s cuando varios procesos se reciclan a la vez. **[V]**
 17. **Logs estructurados en JSON** (`core/logging.py`) con `timestamp`, `level`, `service`, `event` y `request_id`. Nunca registran contraseñas, tokens ni el contenido de los mensajes. **[V]**
 18. **Migraciones compatibles con rollback** (expandir/contraer): `business_id` es anulable en la base y `asignar_negocio_piloto` asigna lo creado por una versión anterior (`MIGRACION_SERVIDOR.md`). **[V]**
+19. **Código ofuscado para el navegador.** El backend sirve `widget/dist/widget.js`, generado con `javascript-obfuscator` desde el fuente legible `widget/static_src/widget.js`; el frontend se publica minificado y sin mapas de código fuente. La CI falla si el widget ofuscado no corresponde al fuente o si aparece un `.map` en `.next/static` (`PRUEBAS.md` §17). **[V]**
 
 ## 3. Estructura de carpetas
 
@@ -139,7 +140,7 @@ Detalle requisito por requisito, con la evidencia y la distinción entre local y
 | Criterio del docente | Estado | Evidencia |
 |---|---|---|
 | Proyecto funcional al 100 % | Implementado y verificado en Render | Plataforma multiempresa, widget en la tienda demo, 22 FAQ reales, catálogo (`PRUEBAS.md` §14) |
-| Pruebas de 10 000 a 50 000 | Implementado y verificado **en local**; en Render no autorizado | `PRUEBAS.md` §12, `loadtest/resultados/`, gráficos en `evidencias/` |
+| Pruebas de 10 000 a 50 000 | Verificado **en local**; en Render, prueba controlada hasta 5 000 (0 fallos) | `PRUEBAS.md` §12 y §16, `loadtest/resultados/`, gráficos en `evidencias/` |
 | Controlar los cuellos de botella | Implementado y verificado | Contador atómico, `--preload`, perfil de carga corregido (`PRUEBAS.md` §12.6) |
 | Logs estructurados | Implementado y verificado (local) | `core/logging.py`, decisión 17 |
 | Errores esperados y caídas | Implementado y verificado | `PRUEBAS.md` §13 (7 escenarios, 0 fallas) y §15 (incidencias) |
@@ -151,11 +152,11 @@ Las entregas anteriores siguen vigentes, con dos cambios: el frontend ya está p
 
 ## 8. Trabajo restante
 
-1. Prueba de carga contra Render (`DESPLIEGUE.md` §4): no autorizada por el propietario, para no agotar
-   Render Free ni la cuota de Neon. Todas las campañas de carga son locales.
-2. RF-10, archivos adjuntos con Amazon S3: no implementado. Requiere una cuenta de AWS y credenciales
-   que el equipo no tiene.
-3. Extra «cifrar el código»: no implementado.
+1. En Render, el límite anónimo de 60/min no se aplicó a peticiones directas (`PRUEBAS.md` §16.4).
+   Revisar `THROTTLE_ANON` y `NUM_PROXIES` en el servicio del backend; el código está verificado en local.
+2. Carga de 10 000 a 50 000 contra Render: no autorizada, para no agotar Render Free ni la cuota de Neon.
+   Contra Render se hizo una prueba controlada de hasta 5 000 solicitudes (`PRUEBAS.md` §16).
+3. RF-10, archivos adjuntos con Amazon S3: fuera del alcance evaluado; no implementado.
 
 ## 9. Dudas abiertas
 

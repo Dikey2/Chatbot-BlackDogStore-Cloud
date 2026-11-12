@@ -1,4 +1,5 @@
 """Widget público: visitantes anónimos, origen autorizado, sesiones y abuso."""
+import hashlib
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -11,6 +12,7 @@ from chat.models import Conversation, Message
 from chat.services import ChatbotUnavailable
 from faqs.models import FAQ
 from tenants.models import Business, BusinessDomain, ChatbotConfig, VisitorSession
+from widget.views import WIDGET_SOURCE
 
 pytestmark = pytest.mark.django_db
 
@@ -265,14 +267,31 @@ def test_session_message_cap(api, shop):
 
 # ---------------------------------------------------------------- distribución del script
 
+def widget_source():
+    """Código legible del widget: las pruebas de comportamiento miran el fuente."""
+    return WIDGET_SOURCE.read_text()
+
+
 def test_widget_script_is_served_with_safe_headers(api):
     response = api.get("/widget.js")
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/javascript")
     assert response["X-Content-Type-Options"] == "nosniff"
-    body = response.content.decode()
-    assert "attachShadow" in body and "data-chatbot-id" in body
-    assert "innerHTML = text" not in body  # los mensajes se escriben con textContent
+    source = widget_source()
+    assert "attachShadow" in source and "data-chatbot-id" in source
+    assert "innerHTML = text" not in source  # los mensajes se escriben con textContent
+
+
+def test_widget_script_is_served_obfuscated_and_matches_the_source(api):
+    body = api.get("/widget.js").content.decode()
+    first_line, code = body.split("\n", 1)
+    # La versión distribuida sale del fuente actual (si no, falta `npm run build`).
+    digest = hashlib.sha256(WIDGET_SOURCE.read_bytes()).hexdigest()
+    assert first_line.endswith(f"sha256:{digest} */")
+    # Ofuscada: sin comentarios ni nombres legibles del código fuente.
+    for readable in ("CONFIG_RETRY_DELAYS_MS", "loadConfig", "BDChatbot", "bdchatbot:ready", "data-chatbot-id"):
+        assert readable not in code
+    assert "_0x" in code
 
 
 def test_staff_conversation_lists_hide_other_business_widget_chats(api, cafe, asesor_api):
@@ -290,8 +309,8 @@ def test_visitor_token_is_useless_on_staff_api(api, shop):
 
 
 
-def test_widget_script_supports_light_dark_and_host_themes(api):
-    body = api.get("/widget.js").content.decode()
+def test_widget_script_supports_light_dark_and_host_themes():
+    body = widget_source()
     # data-theme="light|dark|auto|host" y paleta oscura con contraste garantizado.
     assert 'getAttribute("data-theme")' in body
     assert ":host([data-mode=dark])" in body
@@ -299,8 +318,8 @@ def test_widget_script_supports_light_dark_and_host_themes(api):
 
 
 
-def test_widget_script_retries_config_on_transient_errors_only(api):
-    body = api.get("/widget.js").content.decode()
+def test_widget_script_retries_config_on_transient_errors_only():
+    body = widget_source()
     # Servidor dormido o desplegando: reintenta la configuración con esperas crecientes,
     # pero nunca ante 403/404 (origen no autorizado o chatbot inexistente).
     assert "CONFIG_RETRY_DELAYS_MS = [3000, 8000, 15000]" in body

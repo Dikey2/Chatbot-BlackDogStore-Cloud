@@ -35,7 +35,7 @@ petición tarda entre 20 y 40 s (ver la preparación de la sección 5).
 | Entorno cloud | Cumple | — | Sí | Render + Neon; `/api/health/` → 200 con `database ok` y `chatbot ok` |
 | Endpoints | Cumple | Sí | Sí | `API.md`, colecciones de `postman/` |
 | Registro y login diferenciados | Cumple | Sí | Sí | `/registro` y `/login`; `POST /api/auth/register/` y `/api/auth/login/` |
-| Rate limits | Cumple | Sí | Configurados | `config/settings.py` (anónimo 60/min, login 10/min, chat 30/min, widget 10-120/min); 429 con `Retry-After` en `PRUEBAS.md` §5. En Render no se forzaron para no saturar producción |
+| Rate limits | Parcial | Sí | **No aplicado** | `config/settings.py` (anónimo 60/min, login 10/min, chat 30/min, widget 10-120/min); en local, 60 × 200 y luego 429. En Render, 70 peticiones anónimas seguidas → 70 × 200: hallazgo de configuración (`PRUEBAS.md` §16.4) |
 | Vista de página inexistente o en desarrollo | Cumple | Sí | Sí | 404 propio en el frontend y JSON en la API; `/en-desarrollo` y `/mantenimiento` |
 | Control de respuestas HTTP | Cumple | Sí | Sí | `core/errors.py`: formato `{"error":{"code","message"}}`; en Render se vieron 401, 403 y 404 |
 | CRUD estructurado | Cumple | Sí | Sí | FAQ (`faqs/views.py`), equipo y dominios |
@@ -43,8 +43,8 @@ petición tarda entre 20 y 40 s (ver la preparación de la sección 5).
 | Cifrado de contraseñas | Cumple | Sí | Sí | PBKDF2-SHA256 con 1 000 000 de iteraciones y validadores de Django |
 | Pruebas unitarias y masivas | Cumple | Sí | CI | API 238, chatbot 43 y frontend 10 pruebas correctas en GitHub Actions; Playwright y Newman en local |
 | BD conectada y diagrama editable | Cumple | Sí | Sí | `diagrama-er.mmd` (editable), `diagrama-er.svg`, `BASE_DE_DATOS.md` |
-| Pruebas de 50 a 100 en el servidor | Parcial | Sí | No | `PRUEBAS.md` §4. Ejecutadas en local; en Render no se autorizó carga |
-| Extra: cifrar el código | Falta | — | — | No implementado |
+| Pruebas de 50 a 100 en el servidor | Cumple | Sí | Sí | Render: 98 solicitudes con 10 usuarios, 0 fallos (`PRUEBAS.md` §16); local: §4 |
+| Extra: cifrar el código | Cumple | Sí | Pendiente de despliegue | `widget.js` ofuscado con `javascript-obfuscator`; frontend minificado y sin mapas de código fuente (`PRUEBAS.md` §17) |
 | Extra: diagrama de BD | Cumple | — | — | `diagrama-er.*`, actualizado con la plataforma multiempresa |
 
 ### 3.2 Entrega del 80 %
@@ -62,7 +62,7 @@ petición tarda entre 20 y 40 s (ver la preparación de la sección 5).
 | Ingreso con cuenta de correo | Cumple | Sí | Sí | Login con correo y contraseña. No hay ingreso con Google |
 | Tokens expirados y rutas sin permiso | Cumple | Sí | Sí | Caducidad absoluta (`users/authentication.py`); `/panel` sin sesión redirige a `/login` |
 | Pantallas de errores previstos | Cumple | Sí | Parcial | «Servicio no disponible», «El servidor tardó demasiado», error global (`PRUEBAS.md` §13). En Render solo se observó el reintento del widget al despertar el servidor |
-| Pruebas de 1000 a 5000 en el servidor | Parcial | Sí | No | `PRUEBAS.md` §10: 25 escenarios con 0 fallos en local |
+| Pruebas de 1000 a 5000 en el servidor | Cumple | Sí | Sí | Render: 995 y 4 993 solicitudes con 20 y 25 usuarios, 0 fallos, p95 450 y 340 ms (`PRUEBAS.md` §16); local: §10 |
 | Control de backups | Cumple | Sí | Sí | `infra/backup/`; respaldo real de Neon `neon_20261110-171155.dump`, verificado y restaurado en una copia (`BACKUPS.md`) |
 | Extra: VPC | Falta (justificado) | — | — | Render Free no ofrece red privada con Neon (`DESPLIEGUE.md` §5) |
 | Extra: recursos del equipo | Cumple | Sí | — | `GUNICORN_WORKERS` medido (`PRUEBAS.md` §10) |
@@ -72,7 +72,7 @@ petición tarda entre 20 y 40 s (ver la preparación de la sección 5).
 | Requisito | Estado | Local | Render | Evidencia |
 |---|---|---|---|---|
 | Proyecto funcional al 100 % | Cumple | Sí | Sí | Plataforma multiempresa, widget en la tienda demo, 22 FAQ reales, catálogo con precios reales (`PRUEBAS.md` §14) |
-| Pruebas de 10 000 a 50 000 en el servidor | Parcial | Sí | No | `PRUEBAS.md` §12: 50 000 solicitudes con 100 usuarios y 0 fallos tras las correcciones. En Render no se autorizó carga |
+| Pruebas de 10 000 a 50 000 en el servidor | Parcial | Sí | Hasta 5 000 | `PRUEBAS.md` §12: 50 000 solicitudes con 100 usuarios y 0 fallos en local. Contra Render, prueba controlada hasta 5 000 (§16); más volumen no se autorizó por los límites del plan gratuito |
 | Controlar los cuellos de botella | Cumple | Sí | Desplegado | Contador atómico de rate limit, `gunicorn --preload`, reciclaje escalonado (`PRUEBAS.md` §12.6) |
 | Logs estructurados | Cumple | Sí | No revisado | JSON con `request_id`, sin datos sensibles (`core/logging.py`). Los logs de Render no se revisaron para este informe |
 | Contener errores y mostrar el motivo de una caída | Cumple | Sí | Parcial | 503/504 con código propio, pantallas de servicio no disponible, reintentos del widget (`PRUEBAS.md` §13 y §15) |
@@ -150,8 +150,10 @@ Se presenta aparte, como pide la indicación del docente:
 
 ## 6. Limitaciones conocidas
 
-1. Las pruebas de carga (25 %, 80 % y 100 %) se hicieron en Docker local. En Render solo se verificó el
-   funcionamiento con lecturas. El motivo está en `PRUEBAS.md` §12.1.
-2. RF-10 (archivos adjuntos con Amazon S3) no está implementado: requiere una cuenta de AWS.
-3. En Render Free, el rendimiento es menor que en local: 1 proceso de gunicorn y 512 MB de memoria.
-4. Extras no implementados: VPC (no disponible en el plan gratuito) y cifrado del código.
+1. Las cargas de 10 000 a 50 000 se hicieron en Docker local. Contra Render se hizo una prueba controlada
+   de hasta 5 000 solicitudes (`PRUEBAS.md` §16).
+2. En Render, el límite anónimo no se aplicó a peticiones directas: hallazgo de configuración pendiente de
+   revisar en el servicio (`PRUEBAS.md` §16.4).
+3. RF-10 (archivos adjuntos con Amazon S3) no está implementado; no forma parte de lo evaluado.
+4. En Render Free, el rendimiento es menor que en local: 1 proceso de gunicorn y 512 MB de memoria.
+5. Extra no implementado: VPC (no disponible en el plan gratuito; ver la evaluación en `DESPLIEGUE.md` §5).
