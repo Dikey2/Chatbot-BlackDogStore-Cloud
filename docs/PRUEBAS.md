@@ -470,21 +470,25 @@ Tiempos en milisegundos. «Antes» es el código del 80 %. «Después» incluye 
 limits y menos consultas por petición (12.6). «Preload» añade `gunicorn --preload` con reciclaje
 escalonado.
 
+Fuente: el resumen final de Locust en cada `*_consola.txt`. Es el valor definitivo: `*_stats.csv` se
+escribe cada segundo y omite el último, así que sus totales y percentiles difieren levemente.
+
 | Escenario | Solicitudes | Fallos | Solic./s | p50 | p95 | p99 | Máx. |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| 10 000, antes | 9 964 | 0 | 215,8 | 89 | 390 | 1 400 | 2 427 |
-| 20 000, antes | 19 983 | 0 | 216,2 | 130 | 360 | 700 | 1 080 |
-| 30 000, antes | 29 752 | 0 | 170,4 | 140 | 490 | 1 200 | 7 692 |
-| 50 000, antes | 49 907 | **117** | 212,9 | 130 | 390 | 710 | 1 172 |
-| 10 000, después | 9 711 | 0 | 233,8 | 22 | 660 | 1 400 | 2 026 |
-| 20 000, después | 19 923 | 0 | 283,5 | 16 | 150 | 660 | 1 264 |
-| 30 000, después | 29 806 | 0 | 269,3 | 20 | 180 | 990 | 2 764 |
-| 50 000, después | 49 951 | 0 | 188,9 | 52 | 850 | 2 700 | 7 801 |
-| 50 000, preload (1.ª) | 49 790 | 0 | 238,9 | 49 | 320 | 750 | 9 670 |
-| 50 000, preload (2.ª) | 49 836 | 0 | 118,7* | 22 | 220 | 850 | 5 027 |
+| 10 000, antes | 10 000 | 0 | 215,9 | 89 | 390 | 1 400 | 2 427 |
+| 20 000, antes | 19 992 | 0 | 216,2 | 130 | 360 | 700 | 1 080 |
+| 30 000, antes | 29 993 | 0 | 170,8 | 140 | 490 | 1 200 | 7 692 |
+| 50 000, antes | 49 975 | **117 (0,23 %)** | 212,8 | 130 | 390 | 710 | 1 171 |
+| 10 000, después | 10 000 | 0 | 235,1 | 22 | 600 | 1 400 | 2 026 |
+| 20 000, después | 20 000 | 0 | 283,5 | 16 | 150 | 660 | 1 264 |
+| 30 000, después | 29 999 | 0 | 269,5 | 20 | 180 | 990 | 2 764 |
+| 50 000, después | 49 995 | 0 | 189,0 | 52 | 850 | 2 700 | 7 801 |
+| 50 000, preload (1.ª) | 49 998 | 0 | 239,1 | 49 | 320 | 750 | 9 670 |
+| 50 000, preload (2.ª) | 49 981 | 0 | 118,9* | 22 | 230 | 850 | 5 027 |
 
 \* La segunda corrida con preload tuvo una pausa de 232 s sin datos porque el equipo se suspendió
-(incidencia 12.8-A). Sin esa pausa, el ritmo real fue de unas 265 solicitudes por segundo.
+(incidencia 12.8-A). Sin esa pausa, el ritmo fue de unas 265 solicitudes por segundo: es una **estimación**
+(49 981 solicitudes en los 188 s con datos), no una medición.
 
 Recursos del contenedor backend con 50 000 solicitudes:
 
@@ -539,7 +543,7 @@ Se corrigieron en tres pasos. Cada paso se midió antes de pasar al siguiente.
 - Corrección (`backend/Dockerfile`): `--preload` (Django se carga una vez y los
   procesos nuevos se crean copiando el principal) y `--max-requests 20000 --max-requests-jitter 4000`
   (los reciclajes quedan repartidos en el tiempo).
-- Resultado: con 50 000 solicitudes, p95 de **320 y 220 ms** y p99 de 750-850 ms, sin pausas largas y
+- Resultado: con 50 000 solicitudes, p95 de **320 y 230 ms** y p99 de 750-850 ms, sin pausas largas y
   con la misma memoria (~230 MiB).
 
 **Paso 3. Fallos falsos en el perfil del asesor.**
@@ -570,7 +574,7 @@ de iteraciones) hace lento el login con mucha concurrencia. Se mantiene porque p
 |---|---|---|---|---|---|
 | A | Una corrida de 50 000 midió una «pausa» de 232 s | macOS suspendió el equipo por inactividad; Locust contó la pausa como lentitud | Hueco sin datos en `*_C-50000req-preload-2_stats_history.csv` | Los scripts de carga se ejecutan con `caffeinate -i` | Corridas siguientes sin huecos |
 | B | 117 errores 404 en la bandeja del asesor | El script pedía páginas que dejaban de existir (12.6, paso 3) | `*_C-50000req-antes_failures.csv` | Perfil corregido | 0 fallos |
-| C | Caídas del ritmo a 25-50 solicitudes por segundo | Reciclaje simultáneo de los procesos de gunicorn (12.6, paso 2) | `*_C-50000req-despues_stats_history.csv` | `--preload` y reciclaje escalonado | p95 de 220-320 ms |
+| C | Caídas del ritmo a 25-50 solicitudes por segundo | Reciclaje simultáneo de los procesos de gunicorn (12.6, paso 2) | `*_C-50000req-despues_stats_history.csv` | `--preload` y reciclaje escalonado | p95 de 230-320 ms |
 
 ## 13. Entrega del 100 %: resiliencia (10 de noviembre de 2026)
 
